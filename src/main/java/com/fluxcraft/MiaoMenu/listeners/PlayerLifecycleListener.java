@@ -22,7 +22,7 @@ public class PlayerLifecycleListener implements Listener {
     }
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
-        if (plugin.getConfig().getBoolean("settings.menu-clock.give-on-join", true)) {
+        if (clockManager.isEnabled() && plugin.getConfig().getBoolean("settings.menu-clock.give-on-join", true)) {
             Player player = event.getPlayer();
             FoliaFactory.getAdapter().runTaskLaterForEntity(plugin, player, () -> {
                 if (player.isOnline()) {
@@ -47,7 +47,7 @@ public class PlayerLifecycleListener implements Listener {
     @EventHandler(priority = EventPriority.MONITOR)
     public void onRespawn(PlayerRespawnEvent event) {
         Player player = event.getPlayer();
-        if (plugin.getConfig().getBoolean("settings.menu-clock.enabled", true)) {
+        if (clockManager.isEnabled()) {
             FoliaFactory.getAdapter().runTaskLaterForEntity(plugin, player, () -> {
                 if (player.isOnline()) {
                     clockManager.ensureClock(player);

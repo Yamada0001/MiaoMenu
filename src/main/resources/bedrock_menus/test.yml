@@ -73,7 +73,6 @@ menu:
 
 view_requirement:
   deny_message: "&c你当前无法打开基岩主菜单。"
-  fallback_menu: "test"
   requirements:
     - type: permission
       permission: dgeysermenu.use

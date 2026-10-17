@@ -56,14 +56,19 @@ public class JavaMenu {
         this.itemResolver = itemResolver;
         this.requirementService = requirementService;
         this.title = config.getString("menu_title", config.getString("title", "&6Menu"));
-        this.size = Math.min(
-                Math.max(config.getInt("rows", Constants.Config.DEFAULT_MENU_ROWS), Constants.Config.INVENTORY_MIN_ROWS),
+        this.size = Math.clamp(config.getInt("rows", Constants.Config.DEFAULT_MENU_ROWS), Constants.Config.INVENTORY_MIN_ROWS,
                 Constants.Config.INVENTORY_MAX_ROWS
         ) * Constants.Config.INVENTORY_ROW_SIZE;
-        this.requirementBlocks = requirementService.loadBlocks(config.getConfigurationSection("requirement_blocks"));
-        this.viewRequirements = new ArrayList<>(config.getMapList("view_requirement.requirements"));
+        this.requirementBlocks = requirementService.loadBlocks(name, config.getConfigurationSection("requirement_blocks"));
+        this.viewRequirements = requirementService.readRequirementList(
+                config.get("view_requirement.requirements"),
+                name,
+                "view_requirement.requirements"
+        );
         this.denyMessage = config.getString("view_requirement.deny_message");
         this.fallbackMenu = config.getString("view_requirement.fallback_menu");
+        requirementService.validateRequirementBlocks(name, requirementBlocks);
+        requirementService.validateRequirements(name, "view_requirement.requirements", requirementBlocks, viewRequirements);
         this.items = new ArrayList<>();
         this.itemsBySlot = new HashMap<>();
         loadItems(config);
@@ -79,6 +84,7 @@ public class JavaMenu {
             List<String> leftCmds = config.getStringList(path + ".left_click_commands");
             List<String> rightCmds = config.getStringList(path + ".right_click_commands");
             ConditionGroup conditionGroup = loadConditionGroup(config, path);
+            requirementService.validateConditionGroup(name, path + ".conditions", requirementBlocks, conditionGroup);
             String lockMessage = config.getString(path + ".lock_message");
             MenuItem item = new MenuItem(
                     config.getInt(path + ".slot", 0),
@@ -102,6 +108,10 @@ public class JavaMenu {
             if (conditionsObj instanceof Map<?, ?> map) {
                 return ConditionGroup.fromYaml(map);
             }
+            if (conditionsObj instanceof ConfigurationSection section) {
+                return ConditionGroup.fromYaml(section.getValues(false));
+            }
+            throw new IllegalArgumentException(path + ".conditions must be a map");
         }
         if (config.contains(path + ".requirements") || config.contains(path + ".operator") || config.contains(path + ".children")) {
             ConfigurationSection itemSection = config.getConfigurationSection(path);
@@ -109,7 +119,11 @@ public class JavaMenu {
                 return ConditionGroup.fromYaml(itemSection.getValues(false));
             }
         }
-        List<Map<?, ?>> legacyConditions = new ArrayList<>(config.getMapList(path + ".item_conditions"));
+        List<Map<?, ?>> legacyConditions = requirementService.readRequirementList(
+                config.get(path + ".item_conditions"),
+                name,
+                path + ".item_conditions"
+        );
         return ConditionGroup.fromLegacyConditions(legacyConditions);
     }
 

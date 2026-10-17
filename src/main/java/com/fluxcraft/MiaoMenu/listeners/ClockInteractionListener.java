@@ -22,7 +22,7 @@ public class ClockInteractionListener implements Listener {
         ItemStack item = event.getItem();
         if (item == null) return;
 
-        if (clockManager.isMenuClock(item)) {
+        if (clockManager.isEnabled() && clockManager.isMenuClock(item)) {
             event.setCancelled(true);
             clockManager.openMenuWithClock(event.getPlayer());
         }

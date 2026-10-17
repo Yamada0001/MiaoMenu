@@ -22,6 +22,9 @@ public class MenuClockManager {
         this.plugin = plugin;
         this.clockKey = clockKey;
     }
+    public boolean isEnabled() {
+        return plugin.getConfig().getBoolean("settings.menu-clock.enabled", true);
+    }
     public ItemStack createClock() {
         ItemStack clock = new ItemStack(Material.CLOCK);
         ItemMeta meta = clock.getItemMeta();
@@ -43,7 +46,13 @@ public class MenuClockManager {
         return meta != null && meta.getPersistentDataContainer().has(clockKey, PersistentDataType.BYTE);
     }
     public boolean playerHasClock(Player player) {
-        for (ItemStack item : player.getInventory().getStorageContents()) {
+        return containsMenuClock(player.getInventory().getStorageContents())
+                || containsMenuClock(player.getInventory().getArmorContents())
+                || containsMenuClock(player.getInventory().getExtraContents())
+                || isMenuClock(player.getInventory().getItemInOffHand());
+    }
+    private boolean containsMenuClock(ItemStack[] items) {
+        for (ItemStack item : items) {
             if (isMenuClock(item)) return true;
         }
         return false;
@@ -52,7 +61,7 @@ public class MenuClockManager {
         return !playerHasClock(player);
     }
     public void giveClockToPlayer(Player player) {
-        if (playerHasNoClock(player)) {
+        if (isEnabled() && playerHasNoClock(player)) {
             ItemStack clock = createClock();
             Map<Integer, ItemStack> leftovers = player.getInventory().addItem(clock);
             if (!leftovers.isEmpty()) {
@@ -65,6 +74,9 @@ public class MenuClockManager {
         }
     }
     public void openMenuWithClock(Player player) {
+        if (!isEnabled()) {
+            return;
+        }
         String defaultMenu = plugin.getConfig().getString("settings.default-menu", "test");
         plugin.openSmartMenu(player, defaultMenu);
     }

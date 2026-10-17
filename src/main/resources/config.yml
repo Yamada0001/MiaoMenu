@@ -1,9 +1,9 @@
 # 请勿随意更改版本号！！！！
-config-version: 24 #config.yml的版本号检测
+config-version: 25 #config.yml的版本号检测
 menu-version: 6  #test.yml的版本号检测
 
 settings:
-  lang: "en-us" # 文本语言 可选: en-us, zh-cn, zh-tw, vi-vn, ja-jp（对应 lang/ 目录下的文件）
+  lang: "zh-cn" # 文本语言 可选: en-us, zh-cn, zh-tw, vi-vn, ja-jp（对应 lang/ 目录下的文件）
   open-menu-sound: #打开菜单的音效配置
     enabled: true #是否打开菜单打开时音效功能
     sound: "entity.experience_orb.pickup" #MC原版的音效
@@ -17,7 +17,7 @@ settings:
     enabled: true # 当文件被保存时，无需输入reload，配置会自动重新加载。
   auto-generate-examples: true # 自动生成示例文件开关 仅在没有的时候生成
 
-  velocity-network: true # 是否启用Velocity网络支持（自动检测BungeeCord）
+  proxy-mode: NONE # Proxy mode: NONE, BUNGEE, or VELOCITY
   validate-commands: false # 是否启用命令内容安全验证（启用后可能阻止含特殊字符的命令）
 
   # 物品解析器配置（自动检测已安装的插件IA CE MMO HEADBASE）

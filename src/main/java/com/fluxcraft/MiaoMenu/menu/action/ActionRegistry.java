@@ -19,12 +19,10 @@ public class ActionRegistry {
     private final Map<String, MenuAction> actions = new HashMap<>();
     private final Plugin plugin;
     private final MenuAction defaultAction;
-    private final boolean validateCommands;
 
     public ActionRegistry(Plugin plugin) {
         this.plugin = plugin;
         this.defaultAction = new DefaultAction();
-        this.validateCommands = plugin.getConfig().getBoolean("settings.validate-commands", false);
         registerDefaults();
     }
 
@@ -58,7 +56,8 @@ public class ActionRegistry {
             action = defaultAction;
         }
         try {
-            if (validateCommands && !InputValidator.isSafeCommandContent(content)) {
+            if (plugin.getConfig().getBoolean("settings.validate-commands", false)
+                    && !InputValidator.isSafeCommandContent(content)) {
                 plugin.getLogger().warning(Lang.get("log.action.unsafe-content")
                         .replace("{0}", content)
                         .replace("{1}", player.getName()));

@@ -73,10 +73,16 @@ public class BedrockMenu {
         this.plugin = plugin;
         this.requirementService = requirementService;
         ConfigurationSection blocksSection = config.getConfigurationSection("requirement_blocks");
-        requirementBlocks = requirementService.loadBlocks(blocksSection);
-        viewRequirements = new ArrayList<>(config.getMapList("view_requirement.requirements"));
+        requirementBlocks = requirementService.loadBlocks(name, blocksSection);
+        viewRequirements = requirementService.readRequirementList(
+                config.get("view_requirement.requirements"),
+                name,
+                "view_requirement.requirements"
+        );
         denyMessage = config.getString("view_requirement.deny_message");
         fallbackMenu = config.getString("view_requirement.fallback_menu");
+        requirementService.validateRequirementBlocks(name, requirementBlocks);
+        requirementService.validateRequirements(name, "view_requirement.requirements", requirementBlocks, viewRequirements);
         loadMenuItems();
     }
 
@@ -94,7 +100,8 @@ public class BedrockMenu {
             return;
         }
         String defaultText = getDefaultText();
-        for (Object itemObj : items) {
+        for (int index = 0; index < items.size(); index++) {
+            Object itemObj = items.get(index);
             if (itemObj instanceof Map<?, ?> map) {
                 String text = map.get(ConfigKeys.TEXT) != null ? map.get(ConfigKeys.TEXT).toString() : defaultText;
                 String icon = map.get(ConfigKeys.ICON) != null ? map.get(ConfigKeys.ICON).toString() : "";
@@ -102,25 +109,25 @@ public class BedrockMenu {
                 String command = map.get(ConfigKeys.COMMAND) != null ? map.get(ConfigKeys.COMMAND).toString() : "";
                 String executeAs = map.get(ConfigKeys.EXECUTE_AS) != null ? map.get(ConfigKeys.EXECUTE_AS).toString() : "player";
                 String lockMessage = map.get("lock_message") != null ? map.get("lock_message").toString() : null;
-                ConditionGroup conditionGroup = loadConditionGroup(map);
+                ConditionGroup conditionGroup = loadConditionGroup(map, "menu.items[" + index + "]");
+                requirementService.validateConditionGroup(name, "menu.items[" + index + "].conditions", requirementBlocks, conditionGroup);
                 menuItems.add(new BedrockMenuItem(text, icon, iconType, command, executeAs, conditionGroup, lockMessage));
             }
         }
     }
 
-    private ConditionGroup loadConditionGroup(Map<?, ?> map) {
-        if (map.get("conditions") instanceof Map<?, ?> conditionsMap) {
-            return ConditionGroup.fromYaml(conditionsMap);
-        }
-        List<Map<?, ?>> legacyConditions = new ArrayList<>();
-        Object conditionValue = map.get("item_conditions");
-        if (conditionValue instanceof List<?> rawList) {
-            for (Object element : rawList) {
-                if (element instanceof Map<?, ?> conditionMap) {
-                    legacyConditions.add(conditionMap);
-                }
+    private ConditionGroup loadConditionGroup(Map<?, ?> map, String location) {
+        if (map.containsKey("conditions")) {
+            if (map.get("conditions") instanceof Map<?, ?> conditionsMap) {
+                return ConditionGroup.fromYaml(conditionsMap);
             }
+            throw new IllegalArgumentException(location + ".conditions must be a map");
         }
+        List<Map<?, ?>> legacyConditions = requirementService.readRequirementList(
+                map.get("item_conditions"),
+                name,
+                location + ".item_conditions"
+        );
         return ConditionGroup.fromLegacyConditions(legacyConditions);
     }
 
@@ -139,7 +146,8 @@ public class BedrockMenu {
             builder.getClass().getMethod("title", String.class).invoke(builder, title);
             builder.getClass().getMethod("content", String.class).invoke(builder, "");
             for (BedrockMenuItem item : menuItems) {
-                boolean locked = item.isLocked(player, requirementService, name, requirementBlocks);
+                RequirementResult requirementResult = item.evaluateRequirement(player, requirementService, name, requirementBlocks);
+                boolean locked = !requirementResult.allowed();
                 String buttonText;
                 if (locked) {
                     String originalText = PlaceholderUtils.parse(player, item.text(), plugin);
@@ -219,15 +227,30 @@ public class BedrockMenu {
             }
         }
 
-        public boolean isLocked(Player player, RequirementService requirementService, String menuName, Map<String, RequirementBlock> requirementBlocks) {
+        public RequirementResult evaluateRequirement(
+                Player player,
+                RequirementService requirementService,
+                String menuName,
+                Map<String, RequirementBlock> requirementBlocks
+        ) {
             if (conditionGroup == null) {
-                return false;
+                return RequirementResult.allow();
             }
             if (conditionGroup.requirements().isEmpty() && conditionGroup.children().isEmpty()) {
-                return false;
+                return RequirementResult.allow();
             }
-            RequirementResult result = requirementService.evaluateGroup(player, menuName, requirementBlocks, conditionGroup);
-            return !result.allowed();
+            return requirementService.evaluateGroup(player, menuName, requirementBlocks, conditionGroup);
+        }
+
+        public String getLockMessage(Player player, MiaoMenu plugin, RequirementResult requirementResult) {
+            String message = requirementResult.denyMessage();
+            if (message == null || message.isBlank()) {
+                message = lockMessage;
+            }
+            if (message == null || message.isBlank()) {
+                message = Lang.get("message.item-locked");
+            }
+            return PlaceholderUtils.parse(player, message, plugin);
         }
 
         public String getCommand() {

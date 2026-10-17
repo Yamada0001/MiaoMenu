@@ -21,26 +21,38 @@ public record ConditionGroup(Operator operator, List<Map<?, ?>> requirements, Li
             return new ConditionGroup(Operator.AND, Collections.emptyList(), Collections.emptyList());
         }
 
-        String opStr = yaml.get("operator") instanceof String s ? s : "AND";
+        Object configuredOperator = yaml.get("operator");
+        String opStr = configuredOperator instanceof String s ? s : "AND";
+        if (!"AND".equalsIgnoreCase(opStr) && !"OR".equalsIgnoreCase(opStr)) {
+            throw new IllegalArgumentException("Condition operator must be AND or OR");
+        }
         Operator operator = "OR".equalsIgnoreCase(opStr) ? Operator.OR : Operator.AND;
 
         List<Map<?, ?>> requirements = new ArrayList<>();
         Object reqObj = yaml.get("requirements");
+        if (reqObj != null && !(reqObj instanceof List<?>)) {
+            throw new IllegalArgumentException("Condition requirements must be a list");
+        }
         if (reqObj instanceof List<?> rawList) {
             for (Object element : rawList) {
-                if (element instanceof Map<?, ?> map) {
-                    requirements.add(map);
+                if (!(element instanceof Map<?, ?> map)) {
+                    throw new IllegalArgumentException("Each condition requirement must be a map");
                 }
+                requirements.add(map);
             }
         }
 
         List<ConditionGroup> children = new ArrayList<>();
         Object childrenObj = yaml.get("children");
+        if (childrenObj != null && !(childrenObj instanceof List<?>)) {
+            throw new IllegalArgumentException("Condition children must be a list");
+        }
         if (childrenObj instanceof List<?> rawList) {
             for (Object element : rawList) {
-                if (element instanceof Map<?, ?> map) {
-                    children.add(fromYaml(map));
+                if (!(element instanceof Map<?, ?> map)) {
+                    throw new IllegalArgumentException("Each condition child must be a map");
                 }
+                children.add(fromYaml(map));
             }
         }
 

@@ -1,6 +1,9 @@
 package com.fluxcraft.MiaoMenu;
 
 import java.lang.reflect.Method;
+import java.util.LinkedHashSet;
+import java.util.Locale;
+import java.util.Set;
 import java.util.UUID;
 import java.util.logging.Level;
 import java.util.stream.Stream;
@@ -15,6 +18,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.fluxcraft.MiaoMenu.bedrockmenu.BedrockMenuManager;
 import com.fluxcraft.MiaoMenu.commands.CommandManager;
+import com.fluxcraft.MiaoMenu.commands.impl.GetMenuClockCommand;
 import com.fluxcraft.MiaoMenu.config.ConfigManager;
 import com.fluxcraft.MiaoMenu.foliacall.FoliaFactory;
 import com.fluxcraft.MiaoMenu.integration.ItemResolver;
@@ -39,15 +43,19 @@ public final class MiaoMenu extends JavaPlugin {
     private static final int BSTATS_ID = 28979;
     public static final int JOIN_DELAY_TICKS = 20;
     private static final String MAIN_COMMAND = "dgeysermenu";
+    private static final String CLOCK_COMMAND = "getmenuclock";
 
     private ConfigManager configManager;
     private JavaMenuManager javaMenuManager;
     private BedrockMenuManager bedrockMenuManager;
+    private ActionRegistry actionRegistry;
     private CommandManager commandManager;
     private HotReloadManager hotReloadManager;
     private ProxyManager proxyManager;
     private RequirementService requirementService;
     private RateLimiter interactionRateLimiter;
+    private MenuClockManager menuClockManager;
+    private final ThreadLocal<Set<String>> menuOpenChain = ThreadLocal.withInitial(LinkedHashSet::new);
     private volatile Class<?> floodgateApiClass;
     private volatile Object floodgateApiInstance;
     private volatile Method floodgateIsPlayerMethod;
@@ -77,15 +85,7 @@ public final class MiaoMenu extends JavaPlugin {
             interactionRateLimiter.clearAll();
         }
         if (proxyManager != null) {
-            if (getServer().getMessenger().isIncomingChannelRegistered(this, "BungeeCord")) {
-                getServer().getMessenger().unregisterIncomingPluginChannel(this, "BungeeCord");
-            }
-            if (getServer().getMessenger().isOutgoingChannelRegistered(this, "BungeeCord")) {
-                getServer().getMessenger().unregisterOutgoingPluginChannel(this, "BungeeCord");
-            }
-            if (getServer().getMessenger().isOutgoingChannelRegistered(this, "velocity:player")) {
-                getServer().getMessenger().unregisterOutgoingPluginChannel(this, "velocity:player");
-            }
+            proxyManager.shutdown();
         }
     }
 
@@ -93,9 +93,10 @@ public final class MiaoMenu extends JavaPlugin {
         saveDefaultConfig();
         Lang.init(this);
         HandySchedulerUtil.init(this);
-        floodgateAvailable = Bukkit.getPluginManager().getPlugin("floodgate") != null;
+        floodgateAvailable = Bukkit.getPluginManager().isPluginEnabled("floodgate");
         configManager = new ConfigManager(this);
         configManager.loadConfig();
+        Lang.reload();
         configManager.checkAndRefreshMenus();
         requirementService = new RequirementService(this);
         interactionRateLimiter = new RateLimiter(java.time.Duration.ofSeconds(2), 10);
@@ -106,21 +107,30 @@ public final class MiaoMenu extends JavaPlugin {
         RequirementFeedbackHandler requirementFeedbackHandler = new RequirementFeedbackHandler(this);
         ItemResolver itemResolver = new ItemResolver(this, configManager.getCraftEngineFallbackMaterial());
         SoundsClock soundsClock = new SoundsClock(this);
-        ActionRegistry actionRegistry = new ActionRegistry(this);
+        actionRegistry = new ActionRegistry(this);
         javaMenuManager = new JavaMenuManager(this, itemResolver, soundsClock, requirementService, requirementFeedbackHandler);
-        bedrockMenuManager = new BedrockMenuManager(this, actionRegistry, soundsClock, requirementService, requirementFeedbackHandler);
+        bedrockMenuManager = new BedrockMenuManager(
+                this,
+                actionRegistry,
+                soundsClock,
+                requirementService,
+                requirementFeedbackHandler,
+                floodgateAvailable
+        );
+        boolean bedrockMenusEnabled = floodgateAvailable && bedrockMenuManager.isEnabled();
+        floodgateAvailable = bedrockMenusEnabled;
         commandManager = new CommandManager(this);
-        MenuClockManager clockManager = new MenuClockManager(this, clockKey);
+        menuClockManager = new MenuClockManager(this, clockKey);
         hotReloadManager = new HotReloadManager(this);
         proxyManager = new ProxyManager(this);
         proxyManager.initialize();
         javaMenuManager.loadAllMenus();
         bedrockMenuManager.loadAllMenus();
-        registerClockListeners(clockManager);
+        registerClockListeners(menuClockManager);
     }
 
     private void registerListeners() {
-        getServer().getPluginManager().registerEvents(new JavaMenuListener(this, bedrockMenuManager.getActionRegistry()), this);
+        getServer().getPluginManager().registerEvents(new JavaMenuListener(this, actionRegistry), this);
     }
 
     private void registerClockListeners(MenuClockManager clockManager) {
@@ -152,21 +162,47 @@ public final class MiaoMenu extends JavaPlugin {
         if (command != null) {
             command.setExecutor(commandManager);
             command.setTabCompleter(commandManager);
-            return;
+        } else {
+            getLogger().severe(Lang.get("log.command.register-failed").replace("{0}", MAIN_COMMAND));
         }
-        getLogger().severe(Lang.get("log.command.register-failed").replace("{0}", MAIN_COMMAND));
+
+        PluginCommand clockCommand = getCommand(CLOCK_COMMAND);
+        if (clockCommand != null) {
+            clockCommand.setExecutor(new GetMenuClockCommand(this));
+        } else {
+            getLogger().severe(Lang.get("log.command.register-failed").replace("{0}", CLOCK_COMMAND));
+        }
     }
 
     public void openSmartMenu(Player player, String menuName) {
-        if (isBedrockPlayer(player)) {
-            bedrockMenuManager.openMenu(player, menuName);
+        if (menuName == null) {
+            player.sendMessage(Lang.get("message.menu-not-found").replace("{0}", ""));
             return;
         }
-        javaMenuManager.openMenu(player, menuName);
+        Set<String> openingMenus = menuOpenChain.get();
+        String normalizedMenuName = menuName.toLowerCase(Locale.ROOT);
+        String openingMenuKey = player.getUniqueId() + ":" + normalizedMenuName;
+        if (!openingMenus.add(openingMenuKey)) {
+            getLogger().warning("Blocked recursive menu fallback for " + player.getName() + ": " + menuName);
+            return;
+        }
+
+        try {
+            if (isBedrockPlayer(player)) {
+                bedrockMenuManager.openMenu(player, menuName);
+                return;
+            }
+            javaMenuManager.openMenu(player, menuName);
+        } finally {
+            openingMenus.remove(openingMenuKey);
+            if (openingMenus.isEmpty()) {
+                menuOpenChain.remove();
+            }
+        }
     }
 
     private boolean isBedrockPlayer(Player player) {
-        if (!floodgateAvailable) {
+        if (!floodgateAvailable || bedrockMenuManager == null || !bedrockMenuManager.isEnabled()) {
             return false;
         }
         try {
@@ -232,5 +268,9 @@ public final class MiaoMenu extends JavaPlugin {
 
     public RateLimiter getInteractionRateLimiter() {
         return interactionRateLimiter;
+    }
+
+    public MenuClockManager getMenuClockManager() {
+        return menuClockManager;
     }
 }

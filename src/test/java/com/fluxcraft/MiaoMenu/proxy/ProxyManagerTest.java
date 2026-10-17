@@ -14,6 +14,16 @@ public class ProxyManagerTest {
         assertEquals("BUNGEECORD", ProxyManager.ProxyType.BUNGEECORD.name());
         assertEquals("VELOCITY", ProxyManager.ProxyType.VELOCITY.name());
     }
+
+    @Test
+    @DisplayName("Configured proxy mode is parsed without classpath detection")
+    public void configuredProxyModeParsing() {
+        assertEquals(ProxyManager.ProxyType.BUNGEECORD, ProxyManager.ProxyType.fromConfigValue("BUNGEE"));
+        assertEquals(ProxyManager.ProxyType.BUNGEECORD, ProxyManager.ProxyType.fromConfigValue("bungeecord"));
+        assertEquals(ProxyManager.ProxyType.VELOCITY, ProxyManager.ProxyType.fromConfigValue("VELOCITY"));
+        assertEquals(ProxyManager.ProxyType.NONE, ProxyManager.ProxyType.fromConfigValue("NONE"));
+        assertEquals(ProxyManager.ProxyType.NONE, ProxyManager.ProxyType.fromConfigValue("invalid"));
+    }
     
     @Test
     @DisplayName("Test BungeeCord message format")

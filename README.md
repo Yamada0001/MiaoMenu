@@ -2,7 +2,15 @@
 
 > 轻量级 Java 版和基岩版跨平台菜单插件，支持 Paper 26.2 / Folia / Java 25
 
-[![Java CI](https://github.com/Yamada0001/MiaoMenu/actions/workflows/ci.yml/badge.svg?branch=26.2)](https://github.com/Yamada0001/MiaoMenu/actions/workflows/ci.yml)
+<p align="center">
+  <img alt="Maven" src="https://img.shields.io/badge/Maven-C71A36?style=plastic&logo=apachemaven&logoColor=white">
+  <img alt="Java CI" src="https://github.com/Yamada0001/MiaoMenu/actions/workflows/ci.yml/badge.svg?branch=26.2&logo=apachemaven&logoColor=white">
+  <img alt="Java 21" src="https://img.shields.io/badge/Java-21-FF5CAD?style=plastic&logo=openjdk&logoColor=111111&labelColor=FFFFFF">
+  <img alt="Bukkit 26.2" src="https://img.shields.io/badge/Bukkit-26.2-FF8A00?style=plastic&logo=minecraft&logoColor=111111&labelColor=FFD43B">
+  <img alt="Paper 26.2" src="https://img.shields.io/badge/Paper-26.2-00A3FF?style=plastic&logo=minecraft&logoColor=white&labelColor=A855F7">
+  <img alt="Folia 26.2" src="https://img.shields.io/badge/Folia-26.2-FF8A00?style=plastic&logo=minecraft&logoColor=white&labelColor=22C55E">
+  <a href="https://github.com/Yamada0001/VillagerRevolution/releases"><img alt="GitHub Releases downloads" src="https://img.shields.io/github/downloads/Yamada0001/VillagerRevolution/total?style=plastic&logo=github&logoColor=white&label=GitHub%20Releases&labelColor=6366F1&color=38BDF8"></a>
+</p>
 
 ## 目录
 
@@ -95,18 +103,17 @@ items:
 在 `plugins/MiaoMenu/bedrock_menus/` 中创建同名文件 `my-menu.yml`：
 
 ```yaml
-menu_title: "我的菜单"
-items:
-  spawn:
-    text: "返回主城"
-    icon_type: path
-    icon_data: "textures/blocks/grass.png"
-    left_click_commands:
-      - "[cmd] spawn"
-  close:
-    text: "关闭菜单"
-    left_click_commands:
-      - "[close]"
+menu:
+  title: "我的菜单"
+  items:
+    - text: "返回主城"
+      icon: "textures/blocks/grass.png"
+      icon_type: path
+      command: "spawn"
+      execute_as: player
+    - text: "关闭菜单"
+      command: "close"
+      execute_as: close
 ```
 
 ---
@@ -127,12 +134,10 @@ settings:
   item-resolver:
     fallback-material: STONE      # 物品解析失败时的回退材质
   validate-commands: false        # 命令安全验证开关（默认关闭）
-  velocity-network: true          # Velocity/BungeeCord 代理支持
-
-menu-clock:
-  enabled: true                   # 菜单时钟开关
-  give-on-join: true              # 入服自动给时钟
-  slot: 4                         # 快捷栏位置（0-8）
+  proxy-mode: NONE                # NONE / BUNGEE / VELOCITY
+  menu-clock:
+    enabled: true                 # 菜单时钟开关
+    give-on-join: true            # 入服自动给时钟
 ```
 
 ### 多语言系统 (i18n)
@@ -213,28 +218,34 @@ dgeysermenu.*          (所有权限)
 
 | 类型 | 说明 | 示例 |
 |------|------|------|
-| `permission` | 权限检查 | `permission: vip.use` |
-| `placeholder_equals` | 占位符等于 | `placeholder_equals: "%server_online%,1"` |
-| `placeholder_not_equals` | 占位符不等于 | `placeholder_not_equals: "%server_online%,0"` |
-| `placeholder_contains` | 占位符包含 | `placeholder_contains: "%player_world%,world"` |
-| `advancement` | 成就完成 | `advancement: minecraft:story/mine_diamond` |
-| `progress` | 进度百分比 | `progress: minecraft:story/mine_diamond,50` |
-| `score_gte` | 记分板大于等于 | `score_gte: kills,100` |
-| `score_lte` | 记分板小于等于 | `score_lte: deaths,10` |
-| `score_equals` | 记分板等于 | `score_equals: level,50` |
-| `score_range` | 记分板范围 | `score_range: level,10,99` |
+| `permission` | 权限检查 | `type: permission`, `permission: vip.use` |
+| `placeholder_equals` | 占位符等于 | `type: placeholder_equals`, `placeholder: "%server_online%"`, `value: "1"` |
+| `placeholder_not_equals` | 占位符不等于 | `type: placeholder-not-equals`, `placeholder: "%server_online%"`, `value: "0"` |
+| `placeholder_contains` | 占位符包含 | `type: placeholder_contains`, `placeholder: "%player_world%"`, `value: "world"` |
+| `advancement` | 成就完成 | `type: advancement`, `advancement: minecraft:story/mine_diamond` |
+| `progress` | 进度百分比 | `type: progress`, `objective: playtime`, `value: 50` |
+| `score_gte` | 记分板大于等于 | `type: score_gte`, `objective: kills`, `value: 100` |
+| `score_lte` | 记分板小于等于 | `type: score_lte`, `objective: deaths`, `value: 10` |
+| `score_equals` | 记分板等于 | `type: score_equals`, `objective: level`, `value: 50` |
+| `score_range` | 记分板范围 | `type: score_range`, `objective: level`, `min: 10`, `max: 99` |
 
 ### 条件组 (AND / OR)
 
 ```yaml
 conditions:
-  type: and
+  operator: AND
   requirements:
-    - permission: vip.use
-    - type: or
+    - type: permission
+      permission: vip.use
+  children:
+    - operator: OR
       requirements:
-        - placeholder_equals: "%server_online%,1"
-        - score_gte: kills,100
+        - type: placeholder_equals
+          placeholder: "%server_online%"
+          value: "1"
+        - type: score_gte
+          objective: kills
+          value: 100
 ```
 
 ### 命名条件块 (requirement_blocks)
@@ -242,13 +253,19 @@ conditions:
 ```yaml
 requirement_blocks:
   vip_check:
-    - permission: vip.use
-    - placeholder_gte: "%player_playtime%,3600"
+    requirements:
+      - type: permission
+        permission: vip.use
+      - type: score_gte
+        objective: playtime
+        value: 3600
 
 items:
   special:
     conditions:
-      block: vip_check
+      requirements:
+        - type: block
+          block: vip_check
 ```
 
 ---
@@ -259,12 +276,14 @@ MiaoMenu 支持多种自定义物品格式，按优先级依次尝试：
 
 | 格式 | 前缀 | 示例 | 需要插件 |
 |------|------|------|---------|
-| CraftEngine | `ce:` | `ce:custom_sword` | CraftEngine |
-| ItemsAdder | `ia:` | `ia:ruby_sword` | ItemsAdder |
-| MMOItems | `mmoinstance:` | `mmoinstance:SWORD:RUBY_BLADE` | MMOItems |
-| HeadDatabase | `hdb:` | `hdb:12345` | HeadDatabase |
-| Base64 头颅 | `base64:` | `base64:eyJ0ZXh0dXJlcyI6...` | 无 |
+| CraftEngine | `craftengine:` | `craftengine:namespace:custom_sword` | CraftEngine |
+| ItemsAdder | `itemsadder:` | `itemsadder:namespace:ruby_sword` | ItemsAdder |
+| MMOItems | `mmoitems:` | `mmoitems:SWORD:RUBY_BLADE` | MMOItems |
+| HeadDatabase | `headdb:` | `headdb:12345` | HeadDatabase |
+| Base64 头颅 | `base64head:` | `base64head:eyJ0ZXh0dXJlcyI6...` | 无 |
 | 原版 | 无前缀 | `DIAMOND_SWORD` | 无 |
+
+`base64head:` 使用 Mojang textures 属性的 Base64 JSON，并只接受 `textures.minecraft.net` 的皮肤 URL；64 位纹理哈希仍作为兼容输入支持。
 
 ---
 

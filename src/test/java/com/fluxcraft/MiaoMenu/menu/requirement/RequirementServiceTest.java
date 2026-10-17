@@ -3,6 +3,7 @@ package com.fluxcraft.MiaoMenu.menu.requirement;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.logging.Logger;
 
 import org.bukkit.NamespacedKey;
 import org.bukkit.advancement.Advancement;
@@ -49,6 +50,54 @@ class RequirementServiceTest {
                 "type", "permission",
                 "permission", "miao.test"
         )));
+
+        assertFalse(result.allowed());
+    }
+
+    @Test
+    void missingPermissionFailsClosed() {
+        MiaoMenu plugin = mock(MiaoMenu.class);
+        when(plugin.getLogger()).thenReturn(Logger.getLogger(getClass().getName()));
+        RequirementService service = new RequirementService(plugin);
+
+        RequirementResult result = service.evaluate(mock(Player.class), "test", Map.of(), List.of(Map.of(
+                "type", "permission"
+        )));
+
+        assertFalse(result.allowed());
+    }
+
+    @Test
+    void unknownRequirementTypeFailsClosed() {
+        MiaoMenu plugin = mock(MiaoMenu.class);
+        when(plugin.getLogger()).thenReturn(Logger.getLogger(getClass().getName()));
+        RequirementService service = new RequirementService(plugin);
+
+        RequirementResult result = service.evaluate(mock(Player.class), "test", Map.of(), List.of(Map.of(
+                "type", "permission_typo",
+                "permission", "miao.test"
+        )));
+
+        assertFalse(result.allowed());
+    }
+
+    @Test
+    void invalidConditionInOrGroupFailsClosed() {
+        MiaoMenu plugin = mock(MiaoMenu.class);
+        when(plugin.getLogger()).thenReturn(Logger.getLogger(getClass().getName()));
+        Player player = mock(Player.class);
+        when(player.hasPermission("miao.test")).thenReturn(true);
+        RequirementService service = new RequirementService(plugin);
+        ConditionGroup group = new ConditionGroup(
+                ConditionGroup.Operator.OR,
+                List.of(
+                        Map.of("type", "permission_typo"),
+                        Map.of("type", "permission", "permission", "miao.test")
+                ),
+                List.of()
+        );
+
+        RequirementResult result = service.evaluateGroup(player, "test", Map.of(), group);
 
         assertFalse(result.allowed());
     }

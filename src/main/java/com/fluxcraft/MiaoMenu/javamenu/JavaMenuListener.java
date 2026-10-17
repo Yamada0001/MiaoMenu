@@ -24,17 +24,22 @@ public class JavaMenuListener implements Listener {
 
     @EventHandler
     public void onClick(InventoryClickEvent event) {
-        Inventory clickedInventory = event.getClickedInventory();
-        if (!(event.getWhoClicked() instanceof Player player)
-                || clickedInventory == null
-                || !(clickedInventory.getHolder() instanceof JavaMenu.MenuHolder holder)) {
+        Inventory topInventory = event.getView().getTopInventory();
+        if (!(topInventory.getHolder() instanceof JavaMenu.MenuHolder holder)) {
             return;
         }
         event.setCancelled(true);
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        int rawSlot = event.getRawSlot();
+        if (rawSlot < 0 || rawSlot >= topInventory.getSize()) {
+            return;
+        }
         if (!plugin.getInteractionRateLimiter().allow(player.getUniqueId())) {
             return;
         }
-        JavaMenu.MenuItem item = holder.getMenu().getItem(event.getSlot());
+        JavaMenu.MenuItem item = holder.getMenu().getItem(rawSlot);
         if (item == null) {
             return;
         }
@@ -60,7 +65,7 @@ public class JavaMenuListener implements Listener {
 
     @EventHandler
     public void onDrag(InventoryDragEvent event) {
-        if (event.getInventory().getHolder() instanceof JavaMenu.MenuHolder) {
+        if (event.getView().getTopInventory().getHolder() instanceof JavaMenu.MenuHolder) {
             event.setCancelled(true);
         }
     }

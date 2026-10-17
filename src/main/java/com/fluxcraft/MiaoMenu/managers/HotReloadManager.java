@@ -119,6 +119,7 @@ public class HotReloadManager {
             plugin.getConfigManager().checkAndRefreshMenus();
             plugin.getJavaMenuManager().loadAllMenus();
             plugin.getBedrockMenuManager().loadAllMenus();
+            plugin.getProxyManager().reload();
             plugin.getLogger().info(Lang.get("message.reloaded"));
         });
     }

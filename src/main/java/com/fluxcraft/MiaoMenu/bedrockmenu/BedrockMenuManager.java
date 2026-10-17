@@ -38,17 +38,35 @@ public class BedrockMenuManager {
             ActionRegistry actionRegistry,
             SoundsClock soundsClock,
             RequirementService requirementService,
-            RequirementFeedbackHandler requirementFeedbackHandler
+            RequirementFeedbackHandler requirementFeedbackHandler,
+            boolean floodgateAvailable
     ) {
         this.plugin = plugin;
         this.actionRegistry = actionRegistry;
         this.soundsClock = soundsClock;
         this.requirementService = requirementService;
         this.requirementFeedbackHandler = requirementFeedbackHandler;
-        this.reflectionAccess = new FloodgateReflectionAccess();
+        this.reflectionAccess = floodgateAvailable ? createReflectionAccess() : null;
+    }
+
+    private FloodgateReflectionAccess createReflectionAccess() {
+        try {
+            return new FloodgateReflectionAccess();
+        } catch (RuntimeException | LinkageError e) {
+            plugin.getLogger().log(Level.WARNING, Lang.get("log.bedrock-menu.reflection-setup-failed"), e);
+            return null;
+        }
+    }
+
+    public boolean isEnabled() {
+        return reflectionAccess != null;
     }
 
     public void loadAllMenus() {
+        if (!isEnabled()) {
+            menus = Collections.emptyMap();
+            return;
+        }
         Map<String, BedrockMenu> newMenus = new ConcurrentHashMap<>();
         File dir = new File(plugin.getDataFolder(), "bedrock_menus");
         if (!dir.exists() && !dir.mkdirs()) {
@@ -72,6 +90,10 @@ public class BedrockMenuManager {
     }
 
     public void openMenu(Player player, String menuName) {
+        if (!isEnabled()) {
+            player.sendMessage(Lang.get("open.error"));
+            return;
+        }
         BedrockMenu menu = menus.get(menuName);
         if (MenuUtils.handleMenuNotFound(player, menu, menuName)) {
             return;
@@ -92,14 +114,18 @@ public class BedrockMenuManager {
     }
 
     private void sendFloodgateForm(Player player, BedrockMenu menu) {
+        FloodgateReflectionAccess access = reflectionAccess;
+        if (access == null) {
+            throw new IllegalStateException(Lang.get("log.bedrock-menu.reflection-setup-failed"));
+        }
         Object formBuilder = menu.buildForm(player);
         if (formBuilder == null) {
             plugin.getLogger().warning(Lang.get("log.bedrock-menu.form-build-returned-null").replace("{0}", player.getName()));
             return;
         }
         try {
-            Object builtForm = reflectionAccess.buildForm(formBuilder, createFormResponseHandler(menu.getAllItems(), player, menu));
-            reflectionAccess.sendForm(player.getUniqueId(), builtForm);
+            Object builtForm = access.buildForm(formBuilder, createFormResponseHandler(menu.getAllItems(), player, menu));
+            access.sendForm(player.getUniqueId(), builtForm);
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException(Lang.get("log.bedrock-menu.reflection-send-failed")
                     .replace("{0}", menu.getName())
@@ -134,8 +160,14 @@ public class BedrockMenuManager {
             return;
         }
         BedrockMenu.BedrockMenuItem item = allItems.get(clickedIndex);
-        if (item.isLocked(player, requirementService, menu.getName(), menu.getRequirementBlocks())) {
-            player.sendMessage(Lang.get("message.item-locked"));
+        RequirementResult requirementResult = item.evaluateRequirement(
+                player,
+                requirementService,
+                menu.getName(),
+                menu.getRequirementBlocks()
+        );
+        if (!requirementResult.allowed()) {
+            player.sendMessage(item.getLockMessage(player, plugin, requirementResult));
             return;
         }
         String cmd = item.getCommand();
@@ -184,13 +216,17 @@ public class BedrockMenuManager {
             sendFormMethod.invoke(floodgateApi, uuid, form);
         }
 
-        private Method findSendFormMethod(Class<?> floodgateApiClass) {
-            for (Method method : floodgateApiClass.getMethods()) {
-                if (method.getName().equals("sendForm") && method.getParameterCount() == 2 && method.getParameterTypes()[0] == UUID.class) {
-                    return method;
-                }
-            }
-            throw new IllegalStateException(Lang.get("log.bedrock-menu.reflection-setup-failed"));
+        private Method findSendFormMethod(Class<?> floodgateApiClass) throws ClassNotFoundException {
+    Class<?> formClass = Class.forName("org.geysermc.cumulus.form.Form");
+    for (Method method : floodgateApiClass.getMethods()) {
+        if (method.getName().equals("sendForm")
+                && method.getParameterCount() == 2
+                && method.getParameterTypes()[0] == UUID.class
+                && formClass.equals(method.getParameterTypes()[1])) {
+            return method;
         }
+    }
+    throw new IllegalStateException(Lang.get("log.bedrock-menu.reflection-setup-failed"));
+}
     }
 }

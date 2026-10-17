@@ -2,6 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
+      <module fileurl="file://$PROJECT_DIR$/MiaoMenu.iml" filepath="$PROJECT_DIR$/MiaoMenu.iml" />
       <module fileurl="file://$PROJECT_DIR$/d-geyser-menu-flux.iml" filepath="$PROJECT_DIR$/d-geyser-menu-flux.iml" />
     </modules>
   </component>
