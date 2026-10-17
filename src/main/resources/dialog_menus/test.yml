@@ -1,0 +1,104 @@
+title: "&6&lMiaoMenu Native Dialog"
+external_title: "&6MiaoMenu Dialog"
+can_close_with_escape: true
+pause: false
+after_action: close
+
+layout:
+  type: multi_action
+  columns: 2
+  exit_button:
+    label: "&cClose"
+    tooltip: "&7Return to the game"
+    width: 120
+
+body:
+  # 图片标签示例（需要对应资源包插件）：
+  # ItemsAdder: :logo:   Oraxen: <glyph:logo>   CraftEngine: <image:miaomenu:logo>
+  - type: text
+    text: "&fWelcome, &e%player_name%&f. Stored visits: &a%miao_player_visits%"
+    width: 360
+  - type: item
+    material: COMPASS
+    display_name: "&bMenu Compass"
+    lore:
+      - "&7Items, variables and PlaceholderAPI values"
+      - "&7are resolved whenever the dialog opens."
+    description: "&7Submit the form or select an online player."
+    show_decorations: true
+    show_tooltip: true
+    width: 32
+    height: 32
+
+inputs:
+  - type: text
+    key: message
+    label: "&fMessage"
+    initial: "Hello from %player_name%"
+    max_length: 128
+    width: 360
+  - type: boolean
+    key: remember
+    label: "&fRemember this message"
+    initial: false
+    on_true: "yes"
+    on_false: "no"
+  - type: number_range
+    key: amount
+    label: "&fAmount"
+    start: 1
+    end: 10
+    initial: 1
+    step: 1
+    width: 360
+  - type: single_option
+    key: destination
+    label: "&fDestination"
+    width: 360
+    options:
+      - id: spawn
+        display: "&aSpawn"
+        initial: true
+      - id: shop
+        display: "&eShop"
+
+buttons:
+  - label: "&aSubmit"
+    item: NETHER_STAR
+    tooltip: "&7Use the values entered above"
+    width: 150
+    actions:
+      - "[var_add] player:visits 1"
+      - "[var_set] player:last_message $(message)"
+      - "[message] &aMessage: &f$(message)"
+      - "[message] &aRemember: &f$(remember), amount: $(amount), destination: $(destination)"
+  - label: "&bOpen inventory menu"
+    item: BUNDLE
+    tooltip: "&7Explicitly open the default inventory renderer"
+    width: 150
+    actions:
+      - "[menu] java:test"
+    conditions:
+      operator: AND
+      requirements:
+        - type: permission
+          permission: dgeysermenu.use
+    lock_message: "&cYou cannot open the inventory menu."
+    locked_label: "&7Inventory menu locked"
+
+dynamic_lists:
+  - source: online_players
+    label: "&dPlayer: &f$(display)"
+    tooltip: "&7Send a greeting to $(value)"
+    width: 150
+    limit: 20
+    sort: true
+    empty_label: "&7No online players"
+    actions:
+      - "[player] msg $(value) Hello from %player_name%"
+
+view_requirement:
+  deny_message: "&cYou cannot open this dialog."
+  requirements:
+    - type: permission
+      permission: dgeysermenu.use

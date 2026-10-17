@@ -1,0 +1,15 @@
+# YAML custom command example. Set enabled to true to register /miaomenu-example.
+commands:
+  miaomenu-example:
+    enabled: false
+    description: "Open the configured Java-side MiaoMenu example"
+    usage: "/miaomenu-example [message]"
+    aliases:
+      - mmexample
+    permission: dgeysermenu.use
+    actions:
+      - "[var_set] player:command_message %args%"
+      - "[menu] test"
+    tab_complete:
+      - hello
+      - welcome

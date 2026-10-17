@@ -1,0 +1,14 @@
+# Periodic task example. Enable it after adjusting the interval and actions.
+tasks:
+  visit-reminder:
+    enabled: false
+    delay: 200
+    interval: 1200
+    permission: dgeysermenu.use
+    conditions:
+      operator: AND
+      requirements:
+        - type: permission
+          permission: dgeysermenu.use
+    actions:
+      - "[message] &eYou have opened the example %miao_player_visits% times."
