@@ -216,13 +216,17 @@ public class BedrockMenuManager {
             sendFormMethod.invoke(floodgateApi, uuid, form);
         }
 
-        private Method findSendFormMethod(Class<?> floodgateApiClass) {
-            for (Method method : floodgateApiClass.getMethods()) {
-                if (method.getName().equals("sendForm") && method.getParameterCount() == 2 && method.getParameterTypes()[0] == UUID.class) {
-                    return method;
-                }
-            }
-            throw new IllegalStateException(Lang.get("log.bedrock-menu.reflection-setup-failed"));
+        private Method findSendFormMethod(Class<?> floodgateApiClass) throws ClassNotFoundException {
+    Class<?> formClass = Class.forName("org.geysermc.cumulus.form.Form");
+    for (Method method : floodgateApiClass.getMethods()) {
+        if (method.getName().equals("sendForm")
+                && method.getParameterCount() == 2
+                && method.getParameterTypes()[0] == UUID.class
+                && formClass.equals(method.getParameterTypes()[1])) {
+            return method;
         }
+    }
+    throw new IllegalStateException(Lang.get("log.bedrock-menu.reflection-setup-failed"));
+}
     }
 }
