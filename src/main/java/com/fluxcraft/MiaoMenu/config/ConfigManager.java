@@ -179,6 +179,10 @@ public class ConfigManager {
         saveResourceIfNotExists("dialog_menus/theme-spring.yml");
         saveResourceIfNotExists("commands.yml");
         saveResourceIfNotExists("tasks.yml");
+        // 主题资源包的骨架：没有 pack.mcmeta 的 zip 会被客户端判定为无效资源包，
+        // 图集则决定 Dialog 按钮的 sprite 图标能否解析。
+        saveResourceIfNotExists("themes/pack.mcmeta");
+        saveResourceIfNotExists("themes/assets/miaomenu/atlases/menu.json");
     }
 
     private void saveResourceIfNotExists(String path) {

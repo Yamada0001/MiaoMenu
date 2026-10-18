@@ -296,9 +296,10 @@ public class ItemResolver {
     /**
      * {@code image:<模型ID>}：引用随插件发布的四季主题图（或任意资源包物品模型）。
      *
-     * <p>图片本体在 {@code themes/} 资源包里，键名形如
-     * {@code miaomenu:menu/spring_sakura}；这里只负责把物品指向对应的 item_model。
-     * 未安装资源包时物品会退化成普通纸张，菜单仍可正常使用。</p>
+     * <p>图片本体在 {@code themes/} 资源包里，模型路径是
+     * {@code assets/miaomenu/models/menu/<id>.json}，因此 item_model 必须是
+     * {@code miaomenu:menu/<id>}——少了 {@code menu/} 这一层客户端就找不到模型，
+     * 物品会退化成普通纸张。</p>
      */
     private ItemStack resolveThemeImage(String id, int customModelData) {
         String key = id == null ? "" : id.trim().toLowerCase(java.util.Locale.ROOT);
@@ -307,11 +308,15 @@ public class ItemResolver {
                     "Invalid image id '" + key + "'; expected something like image:spring_sakura.");
             return placeholder("?", "invalid-id");
         }
-        String namespaced = key.indexOf(':') > 0 ? key : "miaomenu:" + key;
-        org.bukkit.NamespacedKey modelKey = org.bukkit.NamespacedKey.fromString(namespaced);
+        String modelId = themeImageModelId(key);
+        if (modelId == null) {
+            warnOnce("image-id:" + key, "Invalid image id '" + key + "'.");
+            return placeholder(key, "invalid-id");
+        }
+        org.bukkit.NamespacedKey modelKey = org.bukkit.NamespacedKey.fromString(modelId);
         ItemStack item = new ItemStack(Material.PAPER);
         if (modelKey == null) {
-            warnOnce("image-key:" + key, "Invalid image model key '" + namespaced + "'.");
+            warnOnce("image-key:" + key, "Invalid image model key '" + modelId + "'.");
             return placeholder(key, "invalid-key");
         }
         org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
@@ -358,6 +363,33 @@ public class ItemResolver {
             item.setItemMeta(meta);
         }
         return item;
+    }
+
+    /**
+     * 把 {@code image:} 后面的写法归一成资源包里的模型 ID。
+     *
+     * <ul>
+     *   <li>{@code spring_sakura} → {@code miaomenu:menu/spring_sakura}</li>
+     *   <li>{@code miaomenu:spring_sakura} → {@code miaomenu:menu/spring_sakura}</li>
+     *   <li>{@code miaomenu:menu/spring_sakura} → 原样保留（已写全路径）</li>
+     * </ul>
+     */
+    static @org.jspecify.annotations.Nullable String themeImageModelId(String key) {
+        if (key == null || key.isBlank()) {
+            return null;
+        }
+        String namespace = "miaomenu";
+        String path = key.trim();
+        int colon = path.indexOf(':');
+        if (colon > 0) {
+            namespace = path.substring(0, colon);
+            path = path.substring(colon + 1);
+        }
+        if (path.isBlank()) {
+            return null;
+        }
+        // 已经写了完整路径（如 menu/spring_sakura）就不要再加一层。
+        return path.indexOf('/') >= 0 ? namespace + ":" + path : namespace + ":menu/" + path;
     }
 
     /** 资源包是否真的在给客户端发主题贴图。 */
