@@ -144,8 +144,8 @@ jobs:
           tag_name: ${{ needs.build.outputs.version }}-build.${{ github.run_number }}
           # 引号必须保留：未加引号时 YAML 会把 " #" 之后当作注释丢弃
           name: "${{ needs.build.outputs.version }} build #${{ github.run_number }}"
-          # 每次提交的自动构建是快照，不冒充正式版本；需要正式版时手动打 tag 即可
-          prerelease: true
+          # 作为正式 Release 发布，产物直接出现在 Releases 列表并成为 Latest
+          prerelease: false
           fail_on_unmatched_files: true
           files: dist/*.jar
           body_path: release-notes.md
