@@ -18,6 +18,18 @@ public class CloseAction implements com.fluxcraft.MiaoMenu.menu.action.MenuActio
     private static volatile Object floodgateApi;
     private static volatile boolean floodgateUnavailable;
 
+    /**
+     * 释放缓存的 Floodgate 反射元数据。
+     *
+     * <p>这些静态字段指向 Floodgate 的类与实例；插件禁用后不清理会让
+     * 热重载场景下的类加载器无法回收。</p>
+     */
+    public static void resetReflectionCache() {
+        closeFormMethod = null;
+        floodgateApi = null;
+        floodgateUnavailable = false;
+    }
+
     @Override
     public void execute(Player player, String content, Plugin plugin) {
         player.closeInventory();

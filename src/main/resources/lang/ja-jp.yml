@@ -18,6 +18,7 @@ message:
   button-no-action: "&7このボタンにはアクションが設定されていません。"
   config-updated: "&econfig.yml が古かったため移行しました。元ファイルは同ディレクトリにバックアップ済みです。"
   reloaded: "&a設定とメニューを再読み込みしました。"
+  reload-failed: "&c再読み込みに失敗しました。コンソールログを確認してください。"
   io-error: "&cディスク操作に失敗しました。プラグインのデータフォルダの権限を確認してください。"
   usage-open: "&c使い方: /{0} open <メニュー名>"
   proxy-unavailable: "&cこのサーバーではサーバー間移動が有効になっていません。"
@@ -37,7 +38,7 @@ descriptions:
 
 theme:
   listing: "&7テーマ一覧を取得しています……"
-  list-failed: "&cテーマ一覧を取得できませんでした。ネットワークまたは settings.theme-repository を確認してください。"
+  list-failed: "&cテーマ一覧を取得できませんでした。ネットワークまたは settings.theme-repository を確認してください。理由：&7{0}"
   empty: "&7リモートリポジトリにはまだテーマがありません。"
   list-header: "&d利用可能なテーマ &7(&f{0}&7)"
   list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3}"
@@ -136,6 +137,8 @@ log:
     directory-empty: "bedrock_menus ディレクトリが空のため、以前に読み込んだメニューを保持します。"
     all-failed: "bedrock_menus 内のすべてのファイルの読み込みに失敗したため、以前に読み込んだメニューを保持します。"
     disabled: "統合版メニューは無効です（Floodgate または Cumulus が利用できません）。bedrock_menus のファイルは無視されます。"
+    floodgate-missing: "Floodgate が見つからないため統合版メニューは無効です。bedrock_menus のファイルは無視されます。"
+    cumulus-missing: "Floodgate は検出されましたが Cumulus フォーム API がありません（古い、または難読化されたビルド）。統合版メニューは無効です。"
     load-failed: "統合版メニュー {0} を読み込めませんでした"
     send-failed: "フォーム '{0}' を統合版プレイヤー {1} に送信できませんでした。"
     send-returned-false: "Floodgate が {0} へのフォーム送信を拒否しました（メニュー {1}）。プレイヤーがオフラインの可能性があります。"

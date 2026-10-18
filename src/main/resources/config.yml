@@ -46,15 +46,37 @@ settings:
     notify-console: true # 发现新版本时写一条控制台日志
     notify-on-join: true # 拥有 dgeysermenu.update 权限的玩家进服时提示一次
 
+  # 菜单变量（[var_set] / [var_add] / %miao_player_*% 等）的落盘与内存缓存策略。
+  # 变更先写内存，再由后台线程合并落盘；插件关闭时会做一次同步保存。
+  variables:
+    save-delay-millis: 1000 # 合并窗口（毫秒）：窗口内的多次变更只落盘一次
+    cache:
+      # 内存里只保留最近使用的玩家变量；被淘汰的条目已经落盘，下次访问会重新读取。
+      ttl-minutes: 60 # 超过该时间未访问的玩家从内存移除（0 = 永不按时间淘汰）
+      max-players: 2000 # 内存中玩家条目上限（0 = 不限制）；淘汰只针对已落盘条目
+
   # 主题仓库：/dgm download <主题ID> 会从这里下载菜单与主题图片。
   # 仓库需在根目录提供 themes.json 清单，格式见 README「主题仓库」。
   theme-repository:
     repository: "Yamada0001/MiaoMenu-theme" # owner/repo 形式
     branch: "main" # 分支或标签名
     timeout-millis: 8000 # 单个文件下载超时（毫秒）
+    prefetch: true # 启动时后台预取清单，让 download 的 Tab 补全能立刻列出主题
+    # 下载源模板，按顺序尝试，第一个成功的最多再被优先使用。
+    # 可用占位符：{repository} {branch} {path}
+    # 国内网络访问 raw.githubusercontent.com 常被重置（SSL handshake / connection reset），
+    # 因此默认追加 jsDelivr 作为后备；需要时可自行追加镜像，例如：
+    #   - "https://gh-proxy.com/https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+    #   - "https://your-mirror.example.com/{path}"
+    # 注意：镜像同样会提供 themes.json 清单，若在意供应链安全，请只保留官方 raw 地址。
+    sources:
+      - "https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+      - "https://cdn.jsdelivr.net/gh/{repository}@{branch}/{path}"
 
   # 资源包下发：主题图片（image: 前缀）需要客户端加载主题资源包才能显示。
   # 未配置 url 时该功能自动跳过，菜单仍可正常使用（图片显示为纸张）。
+  # 若服务器已用 ItemsAdder / Oraxen / CraftEngine 下发资源包，本功能会自动让位
+  # （它们已经会把内容推给客户端，重复下发只会让玩家多下一次包）。
   resource-pack:
     enabled: false # 总开关
     url: "" # 资源包直链（http/https）
@@ -62,6 +84,7 @@ settings:
     force: false # true = 玩家必须接受才能进入服务器
     prompt: "&d加载 MiaoMenu 主题资源包" # 提示文字，留空使用客户端默认文案
     delay-ticks: 20 # 进服后延迟多少 tick 下发（20 = 1 秒）
+    skip-if-other-pack-plugin: true # 检测到 ItemsAdder/Oraxen/CraftEngine 时自动让位
 
 # 所有文本消息已移至 lang/ 目录下的语言文件（由 settings.lang 决定）
 # 支持 &R&G&B 颜色格式，编辑对应语言文件即可自定义文本

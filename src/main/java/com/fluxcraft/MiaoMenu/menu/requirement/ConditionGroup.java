@@ -6,6 +6,14 @@ import java.util.List;
 import java.util.Map;
 
 public record ConditionGroup(Operator operator, List<Map<?, ?>> requirements, List<ConditionGroup> children) {
+    /**
+     * 条件嵌套的最大深度。
+     *
+     * <p>解析期就按此上限截断，避免先递归到很深再校验；运行期求值复用同一
+     * 上限，两处保持一致。</p>
+     */
+    public static final int MAX_NESTING_DEPTH = 16;
+
     public ConditionGroup {
         requirements = requirements != null ? Collections.unmodifiableList(requirements) : Collections.emptyList();
         children = children != null ? Collections.unmodifiableList(children) : Collections.emptyList();
@@ -17,6 +25,19 @@ public record ConditionGroup(Operator operator, List<Map<?, ?>> requirements, Li
     }
 
     public static ConditionGroup fromYaml(Map<?, ?> yaml) {
+        return fromYaml(yaml, 0);
+    }
+
+    /**
+     * @param depth 当前嵌套层级，超过 {@link #MAX_NESTING_DEPTH} 立即失败，
+     *              不再继续递归
+     * @throws IllegalArgumentException 结构不合法或嵌套过深
+     */
+    private static ConditionGroup fromYaml(Map<?, ?> yaml, int depth) {
+        if (depth > MAX_NESTING_DEPTH) {
+            throw new IllegalArgumentException(
+                    "Condition nesting is too deep (max " + MAX_NESTING_DEPTH + ")");
+        }
         if (yaml == null) {
             return new ConditionGroup(Operator.AND, Collections.emptyList(), Collections.emptyList());
         }
@@ -52,7 +73,7 @@ public record ConditionGroup(Operator operator, List<Map<?, ?>> requirements, Li
                 if (!(element instanceof Map<?, ?> map)) {
                     throw new IllegalArgumentException("Each condition child must be a map");
                 }
-                children.add(fromYaml(map));
+                children.add(fromYaml(map, depth + 1));
             }
         }
 

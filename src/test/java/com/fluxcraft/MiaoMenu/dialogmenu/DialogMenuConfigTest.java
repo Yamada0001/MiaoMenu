@@ -3,13 +3,16 @@ package com.fluxcraft.MiaoMenu.dialogmenu;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.Test;
@@ -160,6 +163,47 @@ class DialogMenuConfigTest {
                 """;
 
         assertThrows(IllegalArgumentException.class, () -> parse(yaml));
+    }
+
+    @Test
+    void bundledMenusDoNotTurnTheirOwnSectionsIntoRequirementBlocks() throws Exception {
+        for (String file : List.of("test.yml", "theme-spring.yml")) {
+            try (InputStream resource = getClass().getResourceAsStream("/dialog_menus/" + file)) {
+                org.junit.jupiter.api.Assertions.assertNotNull(resource, file);
+                MiaoMenu plugin = mock(MiaoMenu.class);
+                RequirementService requirementService = new RequirementService(plugin);
+                DialogFZ definition = new DialogYaml(requirementService).parse(
+                        file,
+                        YamlConfiguration.loadConfiguration(new InputStreamReader(resource, StandardCharsets.UTF_8))
+                );
+
+                assertTrue(definition.requirementBlocks().isEmpty(),
+                        file + " 的 title/body/buttons 等配置项不应被当成条件块");
+            }
+        }
+    }
+
+    @Test
+    void readsRequirementBlocksFromTheDedicatedSectionOnly() {
+        String yaml = """
+                title: Test
+                requirement_blocks:
+                  staff_only:
+                    deny_message: "&cOnly staff"
+                    requirements:
+                      - type: permission
+                        permission: miao.staff
+                buttons:
+                  - label: Staff
+                    conditions:
+                      requirements:
+                        - type: block
+                          block: staff_only
+                """;
+
+        DialogFZ definition = parse(yaml);
+
+        assertEquals(Set.of("staff_only"), definition.requirementBlocks().keySet());
     }
 
     @Test

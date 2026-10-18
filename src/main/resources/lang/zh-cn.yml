@@ -18,6 +18,7 @@ message:
   button-no-action: "&7该按钮没有配置任何动作。"
   config-updated: "&econfig.yml 版本过旧，已自动迁移，原文件已备份到同目录。"
   reloaded: "&a配置与菜单已重新加载。"
+  reload-failed: "&c重新加载失败，请查看控制台日志。"
   io-error: "&c磁盘操作失败，请检查插件数据目录的读写权限。"
   usage-open: "&c用法：/{0} open <菜单名称>"
   proxy-unavailable: "&c本服务器未启用跨服传送。"
@@ -37,7 +38,7 @@ descriptions:
 
 theme:
   listing: "&7正在获取主题列表……"
-  list-failed: "&c无法获取主题列表，请检查网络或 settings.theme-repository 配置。"
+  list-failed: "&c无法获取主题列表，请检查网络或 settings.theme-repository 配置。原因：&7{0}"
   empty: "&7远端仓库还没有发布任何主题。"
   list-header: "&d可用主题 &7(&f{0}&7)"
   list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3}"
@@ -136,6 +137,8 @@ log:
     directory-empty: "bedrock_menus 目录为空，已保留此前加载的菜单。"
     all-failed: "bedrock_menus 下所有文件均加载失败，已保留此前加载的菜单。"
     disabled: "基岩版菜单已禁用（Floodgate 或 Cumulus 不可用），bedrock_menus 下的文件将被忽略。"
+    floodgate-missing: "未检测到 Floodgate 插件，基岩版菜单已禁用，bedrock_menus 下的文件将被忽略。"
+    cumulus-missing: "已检测到 Floodgate，但缺少 Cumulus 表单 API（Floodgate 版本过旧或被裁剪），基岩版菜单已禁用。"
     load-failed: "无法加载基岩版菜单 {0}"
     send-failed: "无法将表单 '{0}' 发送给基岩版玩家 {1}。"
     send-returned-false: "Floodgate 拒绝向 {0} 发送表单（菜单 {1}），玩家可能已离线。"

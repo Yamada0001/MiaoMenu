@@ -231,11 +231,16 @@ settings:
   theme-repository:
     repository: "Yamada0001/MiaoMenu-theme"
     branch: "main"
+    prefetch: true
+    sources:
+      - "https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+      - "https://cdn.jsdelivr.net/gh/{repository}@{branch}/{path}"
   resource-pack:
     enabled: false
     url: ""
     sha1: ""
     force: false
+    skip-if-other-pack-plugin: true
 ```
 
 当 `config-version` 和插件内置的版本不一致时，会先把现有配置备份成 `config.yml.<时间戳>.bak`，然后**只补齐缺失的键**，不会覆盖你改过的值。
@@ -458,6 +463,31 @@ tasks:
 - 已存在的文件默认跳过，避免覆盖你手改过的菜单；
 - 清单里给了 `sha256` 的会校验下载结果。
 
+下载源支持多级回退，`settings.theme-repository.sources` 按顺序尝试，成功的那个会被记住并优先复用：
+
+```yaml
+settings:
+  theme-repository:
+    repository: "Yamada0001/MiaoMenu-theme"
+    branch: "main"
+    timeout-millis: 8000
+    prefetch: true            # 启动时后台拉清单，让 download 的 Tab 补全能直接出主题
+    sources:
+      - "https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+      - "https://cdn.jsdelivr.net/gh/{repository}@{branch}/{path}"
+```
+
+可用占位符 `{repository}`、`{branch}`、`{path}`；也可以直接写一个目录前缀（如自建镜像 `https://mirror.example.com/themes/`）。
+国内网络直连 `raw.githubusercontent.com` 常见 `SSLHandshakeException` / `Connection reset`，默认已把 jsDelivr 作为后备；需要时可再追加镜像：
+
+```yaml
+    sources:
+      - "https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+      - "https://gh-proxy.com/https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+```
+
+> 镜像同时会提供 `themes.json` 清单，若在意供应链安全，请只保留官方 raw 地址。
+
 主题图片依赖资源包。配置后玩家进服会自动收到：
 
 ```yaml
@@ -469,9 +499,12 @@ settings:
     force: false
     prompt: "&d加载 MiaoMenu 主题资源包"
     delay-ticks: 20
+    skip-if-other-pack-plugin: true
 ```
 
 `enabled` 为 `false` 或 `url` 为空时自动跳过；`sha1` 不合法只会告警一次并改成不校验下发，不会挡住玩家进服。
+
+这一项是给**没有资源包插件**的服务器准备的兜底通道：ItemsAdder / Oraxen / CraftEngine 本身就会把资源包推给客户端，重复下发只会让玩家多下一次包，所以检测到它们时本功能默认自动让位（`skip-if-other-pack-plugin: false` 可强制接管）。如果你用这些插件管理资源包，把主题贴图合并进它们的包、保持本功能关闭即可。
 
 ## 热重载与安全
 

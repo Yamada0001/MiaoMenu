@@ -105,6 +105,19 @@ public final class Lang {
         loadLanguage();
     }
 
+    /**
+     * 释放对插件实例与语言配置的静态引用（插件禁用时调用）。
+     *
+     * <p>{@link #plugin} 是静态字段，不清理会让热重载场景下的旧类加载器
+     * 一直存活。禁用后 {@link #get(String)} 会退回"返回键名"的行为。</p>
+     */
+    public static void shutdown() {
+        langConfig = null;
+        defaultConfig = null;
+        reportedMissingKeys.clear();
+        plugin = null;
+    }
+
     public static String get(String key) {
         if (langConfig == null) {
             return key;

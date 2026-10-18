@@ -196,6 +196,21 @@ public class ItemResolver {
         }
     }
 
+    /**
+     * 释放缓存的第三方插件类引用（插件禁用时调用）。
+     *
+     * <p>这些静态字段指向 CraftEngine / ItemsAdder / MMOItems / HeadDatabase
+     * 类加载器里的类，热重载场景下不清理会阻止它们被回收。</p>
+     */
+    public static synchronized void resetReflectionCache() {
+        ceClassesInit = false;
+        ceKeyClass = null;
+        ceItemsClass = null;
+        iaCustomStackClass = null;
+        mmoItemsClass = null;
+        headDbMainClass = null;
+    }
+
     private static Object invokeById(Class<?> itemsClass, Class<?> keyClass, Object key) throws ReflectiveOperationException {
         return itemsClass.getMethod("byId", keyClass).invoke(null, key);
     }

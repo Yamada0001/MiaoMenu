@@ -18,6 +18,7 @@ message:
   button-no-action: "&7Nút này chưa được cấu hình hành động."
   config-updated: "&econfig.yml đã lỗi thời và được nâng cấp; bản sao lưu nằm cùng thư mục."
   reloaded: "&aĐã tải lại cấu hình và menu."
+  reload-failed: "&cTải lại thất bại. Hãy xem nhật ký console để biết chi tiết."
   io-error: "&cThao tác đĩa thất bại. Hãy kiểm tra quyền truy cập thư mục dữ liệu plugin."
   usage-open: "&cCách dùng: /{0} open <tên-menu>"
   proxy-unavailable: "&cMáy chủ này chưa bật chuyển máy chủ."
@@ -37,7 +38,7 @@ descriptions:
 
 theme:
   listing: "&7Đang lấy danh sách chủ đề..."
-  list-failed: "&cKhông thể lấy danh sách chủ đề. Hãy kiểm tra mạng hoặc settings.theme-repository."
+  list-failed: "&cKhông thể lấy danh sách chủ đề. Hãy kiểm tra mạng hoặc settings.theme-repository. Lý do: &7{0}"
   empty: "&7Kho lưu trữ từ xa chưa có chủ đề nào."
   list-header: "&dChủ đề khả dụng &7(&f{0}&7)"
   list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3}"
@@ -136,6 +137,8 @@ log:
     directory-empty: "Thư mục bedrock_menus trống; giữ lại các menu đã tải trước đó."
     all-failed: "Mọi tệp trong bedrock_menus đều tải thất bại; giữ lại các menu đã tải trước đó."
     disabled: "Menu Bedrock đã tắt (Floodgate hoặc Cumulus không khả dụng); các tệp trong bedrock_menus sẽ bị bỏ qua."
+    floodgate-missing: "Không tìm thấy Floodgate nên menu Bedrock đã tắt; các tệp trong bedrock_menus sẽ bị bỏ qua."
+    cumulus-missing: "Đã tìm thấy Floodgate nhưng thiếu Cumulus form API (bản cũ hoặc đã bị lược bỏ); menu Bedrock đã tắt."
     load-failed: "Không tải được menu Bedrock {0}"
     send-failed: "Không gửi được biểu mẫu '{0}' cho người chơi Bedrock {1}."
     send-returned-false: "Floodgate từ chối gửi biểu mẫu cho {0} (menu {1}); người chơi có thể đã offline."

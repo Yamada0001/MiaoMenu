@@ -16,6 +16,7 @@ import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
+import org.jspecify.annotations.Nullable;
 
 import com.fluxcraft.MiaoMenu.MiaoMenu;
 import com.fluxcraft.MiaoMenu.foliacall.FoliaFactory;
@@ -34,7 +35,7 @@ public class BedrockMenuManager {
     private final SoundsClock soundsClock;
     private final RequirementService requirementService;
     private final RequirementFeedbackHandler requirementFeedbackHandler;
-    private final FloodgateReflectionAccess reflectionAccess;
+    private volatile @Nullable FloodgateReflectionAccess reflectionAccess;
     private volatile Map<String, BedrockMenu> menus = Collections.emptyMap();
 
     public BedrockMenuManager(
@@ -53,7 +54,7 @@ public class BedrockMenuManager {
         this.reflectionAccess = floodgatePresent ? createReflectionAccess() : null;
     }
 
-    private FloodgateReflectionAccess createReflectionAccess() {
+    private @Nullable FloodgateReflectionAccess createReflectionAccess() {
         try {
             return new FloodgateReflectionAccess();
         } catch (RuntimeException | LinkageError e) {
@@ -62,16 +63,38 @@ public class BedrockMenuManager {
         }
     }
 
+    /**
+     * 取得反射桥，必要时重试。
+     *
+     * <p>启动期 Floodgate 可能还没启用（或探测时机不对），这里在每次加载菜单时
+     * 复核一次，避免整台服务器因为一次误判而永久失去基岩版菜单。</p>
+     */
+    private @Nullable FloodgateReflectionAccess ensureReflectionAccess() {
+        FloodgateReflectionAccess current = reflectionAccess;
+        if (current != null) {
+            return current;
+        }
+        if (!plugin.isFloodgatePresent()) {
+            return null;
+        }
+        synchronized (this) {
+            if (reflectionAccess == null) {
+                reflectionAccess = createReflectionAccess();
+            }
+            return reflectionAccess;
+        }
+    }
+
     public boolean isEnabled() {
         return reflectionAccess != null;
     }
 
     public void loadAllMenus() {
-        if (!isEnabled()) {
+        if (ensureReflectionAccess() == null) {
             if (!menus.isEmpty()) {
                 menus = Collections.emptyMap();
             }
-            plugin.getLogger().warning(Lang.get("log.bedrock-menu.disabled"));
+            plugin.getLogger().warning(disabledReason());
             return;
         }
         Map<String, BedrockMenu> previous = this.menus;
@@ -125,6 +148,19 @@ public class BedrockMenuManager {
     }
 
     /**
+     * 把"基岩版菜单不可用"细分成可定位的原因，避免服主只能看到笼统提示。
+     */
+    private String disabledReason() {
+        if (!plugin.isFloodgatePresent()) {
+            return Lang.get("log.bedrock-menu.floodgate-missing");
+        }
+        if (!BedrockMenu.cumulusAvailable()) {
+            return Lang.get("log.bedrock-menu.cumulus-missing");
+        }
+        return Lang.get("log.bedrock-menu.disabled");
+    }
+
+    /**
      * 加载期校验 {@code execute_as}，避免写错时静默以玩家身份执行。
      */
     private void warnAboutUnknownExecuteAs(BedrockMenu menu) {
@@ -171,7 +207,7 @@ public class BedrockMenuManager {
     }
 
     private void sendFloodgateForm(Player player, BedrockMenu menu) {
-        FloodgateReflectionAccess access = reflectionAccess;
+        FloodgateReflectionAccess access = ensureReflectionAccess();
         if (access == null) {
             throw new IllegalStateException(Lang.get("log.bedrock-menu.reflection-setup-failed"));
         }

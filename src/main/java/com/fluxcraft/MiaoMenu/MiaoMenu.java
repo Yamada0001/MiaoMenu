@@ -18,6 +18,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import com.fluxcraft.MiaoMenu.api.MiaoMenuApi;
 import com.fluxcraft.MiaoMenu.api.MiaoMenuApiImpl;
+import com.fluxcraft.MiaoMenu.bedrockmenu.BedrockMenu;
 import com.fluxcraft.MiaoMenu.bedrockmenu.BedrockMenuManager;
 import com.fluxcraft.MiaoMenu.commands.CommandManager;
 import com.fluxcraft.MiaoMenu.commands.impl.GetMenuClockCommand;
@@ -40,6 +41,7 @@ import com.fluxcraft.MiaoMenu.managers.ResourcePackManager;
 import com.fluxcraft.MiaoMenu.managers.SoundsClock;
 import com.fluxcraft.MiaoMenu.managers.CustomCommandManager;
 import com.fluxcraft.MiaoMenu.menu.action.ActionRegistry;
+import com.fluxcraft.MiaoMenu.menu.action.impl.CloseAction;
 import com.fluxcraft.MiaoMenu.menu.requirement.RequirementFeedbackHandler;
 import com.fluxcraft.MiaoMenu.menu.requirement.RequirementService;
 import com.fluxcraft.MiaoMenu.proxy.ProxyManager;
@@ -121,8 +123,13 @@ public final class MiaoMenu extends JavaPlugin {
         if (periodicTaskManager != null) {
             periodicTaskManager.shutdown();
         }
+        if (themeRepository != null) {
+            // 先停掉主题下载，避免异步任务在禁用后回调 reloadAllMenus。
+            themeRepository.shutdown();
+        }
         if (variableStore != null) {
-            variableStore.flush();
+            // 停止后台落盘并做最后一次同步保存。
+            variableStore.shutdown();
         }
         if (metrics != null) {
             metrics.shutdown();
@@ -130,13 +137,38 @@ public final class MiaoMenu extends JavaPlugin {
         if (updateChecker != null) {
             updateChecker.shutdown();
         }
+        try {
+            releaseStaticReferences();
+        } catch (RuntimeException | LinkageError e) {
+            getLogger().log(Level.FINE, "Could not release all static references", e);
+        } finally {
+            // 无论如何都要断开对插件实例的静态引用，否则热重载会钉住旧类加载器。
+            Lang.shutdown();
+        }
+    }
+
+    /**
+     * 释放静态字段对插件实例与外部类加载器的引用。
+     *
+     * <p>正常启停不需要这步，但用 PlugMan 之类热重载插件时，静态字段会钉住
+     * 旧的类加载器，导致整份旧类无法回收。</p>
+     */
+    private void releaseStaticReferences() {
+        BedrockMenu.resetReflectionCache();
+        ItemResolver.resetReflectionCache();
+        CloseAction.resetReflectionCache();
+        floodgateApiClass = null;
+        floodgateApiInstance = null;
+        floodgateIsPlayerMethod = null;
+        floodgateReflectionBroken = false;
+        floodgatePresent = false;
     }
 
     private void initializeCoreServices() {
         saveDefaultConfig();
         Lang.init(this);
         HandySchedulerUtil.init(this);
-        floodgatePresent = Bukkit.getPluginManager().isPluginEnabled("floodgate");
+        floodgatePresent = detectFloodgate();
         configManager = new ConfigManager(this);
         configManager.loadConfig();
         Lang.reload();
@@ -256,7 +288,24 @@ public final class MiaoMenu extends JavaPlugin {
             initializeHotReload();
         }
         initializeUpdateChecker();
+        initializeThemePrefetch();
         initializeBStats();
+    }
+
+    /**
+     * 后台预取主题清单。
+     *
+     * <p>{@code download} 的 Tab 补全依赖已缓存的清单；不预取的话第一次按 Tab
+     * 只能返回空列表（请求是异步的），玩家会以为插件没连上远端仓库。</p>
+     */
+    private void initializeThemePrefetch() {
+        if (themeRepository == null) {
+            return;
+        }
+        if (!getConfig().getBoolean("settings.theme-repository.prefetch", true)) {
+            return;
+        }
+        themeRepository.loadManifestAsync();
     }
 
     /**
@@ -400,7 +449,7 @@ public final class MiaoMenu extends JavaPlugin {
      * 后者失败时仍然要能正确识别基岩玩家并给出提示。</p>
      */
     private boolean isBedrockPlayer(Player player) {
-        if (!floodgatePresent || floodgateReflectionBroken) {
+        if (!isFloodgatePresent() || floodgateReflectionBroken) {
             return false;
         }
         try {
@@ -428,7 +477,55 @@ public final class MiaoMenu extends JavaPlugin {
 
     /** 基岩版菜单链路是否可用（Floodgate + Cumulus 反射桥都就绪）。 */
     public boolean isBedrockMenuEnabled() {
-        return floodgatePresent && bedrockMenuManager != null && bedrockMenuManager.isEnabled();
+        return isFloodgatePresent() && bedrockMenuManager != null && bedrockMenuManager.isEnabled();
+    }
+
+    /**
+     * Floodgate 插件是否可用。
+     *
+     * <p>启动期只探测一次并缓存结果；此前探测失败时会重新检查，
+     * 这样 Floodgate 晚于本插件启用（或插件名大小写与预期不同）也能自动恢复。</p>
+     */
+    public boolean isFloodgatePresent() {
+        if (floodgatePresent) {
+            return true;
+        }
+        boolean detected = detectFloodgate();
+        if (detected) {
+            floodgatePresent = true;
+        }
+        return detected;
+    }
+
+    /**
+     * 大小写不敏感地查找 Floodgate。
+     *
+     * <p>{@code PluginManager#isPluginEnabled(String)} 依赖插件注册表里的名字，
+     * 一旦插件名大小写或加载顺序与预期不同就会返回 {@code false}，因此再扫一遍
+     * 已加载插件列表兜底，避免"明明装了 Floodgate 却提示不可用"。</p>
+     */
+    private boolean detectFloodgate() {
+        org.bukkit.Server server = getServer();
+        if (server == null) {
+            return false;
+        }
+        org.bukkit.plugin.PluginManager pluginManager = server.getPluginManager();
+        if (pluginManager == null) {
+            return false;
+        }
+        try {
+            if (pluginManager.isPluginEnabled("floodgate")) {
+                return true;
+            }
+        } catch (RuntimeException ignored) {
+            // 插件管理器异常时继续走下面的兜底扫描
+        }
+        for (org.bukkit.plugin.Plugin plugin : pluginManager.getPlugins()) {
+            if (plugin != null && "floodgate".equalsIgnoreCase(plugin.getName())) {
+                return plugin.isEnabled();
+            }
+        }
+        return false;
     }
 
     private void initializeBStats() {

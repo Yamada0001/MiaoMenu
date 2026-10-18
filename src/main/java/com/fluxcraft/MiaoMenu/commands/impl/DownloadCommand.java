@@ -74,7 +74,9 @@ public class DownloadCommand implements PluginCommand {
         sender.sendMessage(Lang.get("theme.listing"));
         repository.loadManifestAsync().thenAccept(manifest -> {
             if (manifest == null) {
-                sender.sendMessage(Lang.get("theme.list-failed"));
+                String reason = repository.lastManifestError();
+                sender.sendMessage(Lang.get("theme.list-failed")
+                        .replace("{0}", reason == null ? "-" : reason));
                 return;
             }
             sendThemeList(sender, manifest);

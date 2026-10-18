@@ -22,7 +22,7 @@ import com.fluxcraft.MiaoMenu.MiaoMenu;
 import com.fluxcraft.MiaoMenu.utils.Lang;
 
 public class ConfigManager {
-    private static final int CONFIG_VERSION = 27;
+    private static final int CONFIG_VERSION = 28;
     private static final int MENU_VERSION = 8;
     private static final String JAVA_MENUS_DIR = "java_menus";
     private static final String BEDROCK_MENUS_DIR = "bedrock_menus";

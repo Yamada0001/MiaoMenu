@@ -31,7 +31,7 @@ import com.fluxcraft.MiaoMenu.utils.PlaceholderUtils;
  */
 public class RequirementService {
     private static final String INVALID_REQUIREMENT_TYPE = "__invalid_requirement__";
-    private static final int MAX_NESTING_DEPTH = 16;
+    private static final int MAX_NESTING_DEPTH = ConditionGroup.MAX_NESTING_DEPTH;
 
     private final MiaoMenu plugin;
     private final Map<String, RequirementEvaluator> evaluators = new ConcurrentHashMap<>();

@@ -17,6 +17,7 @@ message:
   button-no-action: "&7This button has no action configured."
   config-updated: "&eYour config.yml was outdated and has been migrated; a backup was written next to it."
   reloaded: "&aConfiguration and menus reloaded."
+  reload-failed: "&cReload failed. See the console log for details."
   io-error: "&cA disk operation failed. Check the plugin data folder permissions."
   usage-open: "&cUsage: /{0} open <menu-name>"
   proxy-unavailable: "&cCross-server transfer is not enabled on this server."
@@ -36,7 +37,7 @@ descriptions:
 
 theme:
   listing: "&7Fetching the theme list..."
-  list-failed: "&cCould not fetch the theme list. Check your network or settings.theme-repository."
+  list-failed: "&cCould not fetch the theme list. Check your network or settings.theme-repository. Reason: &7{0}"
   empty: "&7The remote repository does not publish any theme yet."
   list-header: "&dAvailable themes &7(&f{0}&7)"
   list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3}"
@@ -135,6 +136,8 @@ log:
     directory-empty: "The bedrock_menus directory is empty; keeping the previously loaded menus."
     all-failed: "Every bedrock_menus file failed to load; keeping the previously loaded menus."
     disabled: "Bedrock menus are disabled (Floodgate or Cumulus unavailable); bedrock_menus files are ignored."
+    floodgate-missing: "Floodgate was not detected, so Bedrock menus are disabled; bedrock_menus files are ignored."
+    cumulus-missing: "Floodgate is present but its Cumulus form API is missing (outdated or shaded build); Bedrock menus are disabled."
     load-failed: "Could not load Bedrock menu {0}"
     send-failed: "Could not send form '{0}' to Bedrock player {1}."
     send-returned-false: "Floodgate refused the form for {0} (menu {1}); the player may be offline."

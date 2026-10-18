@@ -33,7 +33,10 @@ public final class DialogYaml {
     }
 
     public DialogFZ parse(String name, FileConfiguration config) {
-        Map<String, RequirementBlock> blocks = requirementService.loadBlocks(name, config);
+        // 只能读取 requirement_blocks 子节点：直接把整份菜单当条件块会
+        // 把 title/body/buttons 等正常配置项误判成"缺少 requirements 的条件块"。
+        Map<String, RequirementBlock> blocks = requirementService.loadBlocks(
+                name, config.getConfigurationSection("requirement_blocks"));
         requirementService.validateRequirementBlocks(name, blocks);
 
         LayoutType layoutType = resolveLayoutType(config);

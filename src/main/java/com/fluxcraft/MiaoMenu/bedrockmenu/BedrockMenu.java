@@ -64,9 +64,35 @@ public class BedrockMenu {
             cumulusInitialized = true;
         } catch (ClassNotFoundException | LinkageError e) {
             cumulusUnavailable = true;
-            LOGGER.log(java.util.logging.Level.WARNING,
-                    "Cumulus (Floodgate forms) is not available; Bedrock menus are disabled.", e);
+            LOGGER.log(java.util.logging.Level.FINE,
+                    "Cumulus (Floodgate forms) is not available", e);
         }
+    }
+
+    /**
+     * Cumulus 反射元数据是否可用。
+     *
+     * <p>供启动期诊断使用：Floodgate 已安装但表单 API 缺失时，需要告诉服主
+     * 到底缺的是哪一环，而不是笼统地说"Floodgate 或 Cumulus 不可用"。</p>
+     */
+    public static boolean cumulusAvailable() {
+        initCumulusReflection();
+        return !cumulusUnavailable;
+    }
+
+    /**
+     * 释放缓存的 Cumulus 类引用（插件禁用时调用）。
+     *
+     * <p>静态字段指向外部插件类加载器里的类，热重载场景下不清理会阻止回收。</p>
+     */
+    public static synchronized void resetReflectionCache() {
+        cumulusInitialized = false;
+        cumulusUnavailable = false;
+        cumulusSimpleFormClass = null;
+        cumulusFormImageClass = null;
+        cumulusImageTypeClass = null;
+        cumulusPathType = null;
+        cumulusUrlType = null;
     }
 
     private static class ConfigKeys {
