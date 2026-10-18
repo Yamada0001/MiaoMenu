@@ -57,6 +57,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          # 需要完整历史，才能按 before..after 取出本次推送的所有提交
+          fetch-depth: 0
+
       - name: Download shaded jar
         uses: actions/download-artifact@v4
         with:
@@ -67,46 +72,64 @@ jobs:
         env:
           PYTHONIOENCODING: utf-8
           VERSION: ${{ needs.build.outputs.version }}
+          # event payload 里的 message 换行会被转义，只取 username 做映射
           COMMITS_JSON: ${{ toJSON(github.event.commits) }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
           BRANCH: ${{ github.ref_name }}
           ACTOR: ${{ github.actor }}
           REPO_URL: ${{ github.server_url }}/${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           python3 - <<'PY'
-          import json, os
+          import json, os, subprocess
 
           env = os.environ
-          commits = json.loads(env.get("COMMITS_JSON") or "[]")
+          repo = env.get("REPO_URL", "")
+          before = env.get("BEFORE_SHA", "")
+          after = env.get("AFTER_SHA", "")
+          zero = "0" * 40
+
+          def git(*args):
+              return subprocess.run(["git", *args], capture_output=True, text=True, encoding="utf-8")
+
+          if before and before != zero and git("cat-file", "-e", before).returncode == 0:
+              rev_args = ["%s..%s" % (before, after)]
+          else:
+              rev_args = ["-1", after]
+
+          # 用 \x1f 分隔字段、\x1e 分隔记录，避免提交说明里的换行干扰解析
+          raw = git("log", "--pretty=format:%H%x1f%an%x1f%ae%x1f%B%x1e", *rev_args).stdout
+          records = [chunk for chunk in raw.split("\x1e") if chunk.strip()]
+
+          users = {}
+          for commit in json.loads(env.get("COMMITS_JSON") or "[]"):
+              users[commit.get("id") or ""] = commit.get("author") or {}
 
           out = []
           out.append("## 版本\n")
           out.append("`%s` · build #%s\n" % (env.get("VERSION", ""), env.get("GITHUB_RUN_NUMBER", "")))
           out.append("## 提交叙述\n")
 
-          if commits:
-              for commit in commits:
-                  sha = commit.get("id") or ""
-                  message = commit.get("message") or ""
-                  # GitHub 的 commits[].message 会把换行转义成字面量 \n，仅在缺少真实换行时还原
-                  if "\n" not in message and "\\n" in message:
-                      message = message.replace("\\n", "\n")
-                  message = message.rstrip("\r\n")
-                  author = commit.get("author") or {}
-                  name = author.get("name") or "未知"
+          if records:
+              for record in records:
+                  sha, name, email, message = record.split("\x1f", 3)
+                  message = message.strip("\n")
+                  author = users.get(sha) or {}
+                  display = author.get("name") or name or "未知"
                   username = author.get("username") or ""
-                  by = "%s (@%s)" % (name, username) if username else name
+                  by = "%s (@%s)" % (display, username) if username else display
                   out.append("### %s\n" % sha[:7])
                   out.append("%s\n" % message)
                   out.append("- 作者：%s" % by)
-                  out.append("- 链接：%s\n" % (commit.get("url") or ""))
+                  out.append("- 链接：%s/commit/%s\n" % (repo, sha))
           else:
               out.append("_本次推送没有可展示的提交记录_\n")
 
           out.append("\n## 构建信息\n")
           out.append("- 分支：`%s`" % env.get("BRANCH", ""))
           out.append("- 推送者：%s" % env.get("ACTOR", ""))
-          out.append("- 仓库：%s" % env.get("REPO_URL", ""))
+          out.append("- 仓库：%s" % repo)
           out.append("- 运行记录：%s" % env.get("RUN_URL", ""))
 
           notes = "\n".join(out) + "\n"
