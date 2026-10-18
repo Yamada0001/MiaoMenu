@@ -2,11 +2,6 @@ package com.fluxcraft.MiaoMenu.update;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.Properties;
 import java.util.Set;
@@ -23,6 +18,7 @@ import org.bukkit.plugin.Plugin;
 import org.jspecify.annotations.Nullable;
 
 import com.fluxcraft.MiaoMenu.MiaoMenu;
+import com.fluxcraft.MiaoMenu.net.HttpFetcher;
 import com.fluxcraft.MiaoMenu.utils.Lang;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -69,7 +65,7 @@ public final class UpdateChecker {
     private volatile boolean notifyOnJoin;
     private volatile int intervalHours;
     private volatile Duration timeout;
-    private volatile HttpClient httpClient;
+    private volatile @Nullable HttpFetcher fetcher;
     private volatile UpdateInfo lastResult;
 
     public UpdateChecker(MiaoMenu plugin) {
@@ -119,14 +115,8 @@ public final class UpdateChecker {
     public void shutdown() {
         active.set(false);
         generation.incrementAndGet();
-        HttpClient client = this.httpClient;
-        if (client != null) {
-            try {
-                client.shutdownNow();
-            } catch (RuntimeException ignored) {
-                // 关闭阶段失败无需处理
-            }
-        }
+        // HttpFetcher 的 HttpClient 没有暴露 shutdown；置空让后续调用不再复用。
+        fetcher = null;
     }
 
     public boolean isEnabled() {
@@ -190,48 +180,37 @@ public final class UpdateChecker {
 
     private UpdateInfo fetch() throws IOException, InterruptedException {
         String endpoint = includePrerelease ? "/releases?per_page=10" : "/releases/latest";
-        URI uri = URI.create(API_BASE + repository + endpoint);
-        HttpRequest request = HttpRequest.newBuilder(uri)
-                .timeout(timeout)
-                .header("Accept", "application/vnd.github+json")
-                .header("User-Agent", "MiaoMenu-UpdateChecker")
-                .GET()
-                .build();
-        HttpResponse<String> response = client().send(
-                request,
-                HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8)
-        );
-        int status = response.statusCode();
-        if (status == 404) {
-            // 仓库还没有发布任何 Release
-            return UpdateInfo.noRelease(currentVersion);
-        }
-        if (status == 403 || status == 429) {
-            throw new IOException("GitHub API rate limit reached (HTTP " + status + ")");
-        }
-        if (status != 200) {
-            throw new IOException("GitHub API returned HTTP " + status);
+        String body;
+        try {
+            body = fetcher().fetchText(repository + endpoint);
+        } catch (IOException e) {
+            // 404 在 fetchText 里已归一化为 "Not found"，这里翻译成"还没发布 Release"。
+            if (e.getMessage() != null && e.getMessage().contains("Not found")) {
+                return UpdateInfo.noRelease(currentVersion);
+            }
+            throw e;
         }
         // 用实例方法解析：编译期类路径上 Geyser 内置的旧版 Gson 没有静态 parseString
-        JsonElement root = new JsonParser().parse(response.body());
+        JsonElement root = new JsonParser().parse(body);
         return includePrerelease
                 ? fromReleaseList(root, currentVersion, true)
                 : fromSingleRelease(root, currentVersion);
     }
 
-    private HttpClient client() {
-        HttpClient existing = this.httpClient;
+    /** 与主题下载共用同一套抓取逻辑（超时、重定向、错误归一化）。 */
+    private HttpFetcher fetcher() {
+        HttpFetcher existing = this.fetcher;
         if (existing != null) {
             return existing;
         }
         synchronized (this) {
-            if (this.httpClient == null) {
-                this.httpClient = HttpClient.newBuilder()
-                        .connectTimeout(timeout)
-                        .followRedirects(HttpClient.Redirect.NORMAL)
-                        .build();
+            if (this.fetcher == null) {
+                this.fetcher = HttpFetcher.forBaseUrl(
+                        API_BASE + repository,
+                        (int) timeout.toMillis()
+                );
             }
-            return this.httpClient;
+            return this.fetcher;
         }
     }
 

@@ -448,9 +448,10 @@ tasks:
 
 | 命令 | 说明 |
 |------|------|
-| `/dgm download` | 列出可用主题 |
-| `/dgm download <主题ID>` | 下载并安装，完成后自动热重载 |
+| `/dgm download` | 列出可用主题，**直接点击主题即可安装** |
+| `/dgm download <主题ID>` | 下载并安装，完成后自动热重载并重发资源包 |
 | `/dgm download <主题ID> --force` | 覆盖已存在的同名文件 |
+| `/dgm download cancel` | 取消正在进行的下载 |
 
 | 主题 ID | 名称 | 季节 |
 |---------|------|------|
@@ -461,34 +462,64 @@ tasks:
 
 - 下载目标只允许 `java_menus/`、`dialog_menus/`、`bedrock_menus/`、`themes/`、`lang/`，清单里出现 `..` 或绝对路径会被拒绝；
 - 已存在的文件默认跳过，避免覆盖你手改过的菜单；
-- 清单里给了 `sha256` 的会校验下载结果。
+- 清单里给了 `sha256` 的会校验下载结果；
+- 下载过程中用 BossBar 显示进度（百分比、当前文件、已下载大小）；服务端不返回 `Content-Length` 时退化为文件级进度。
 
-下载源支持多级回退，`settings.theme-repository.sources` 按顺序尝试，成功的那个会被记住并优先复用：
+下载源由 `settings.theme-repository.sources` 控制，按顺序尝试，成功的那个会被记住并优先复用。默认走 **gh-proxy**（直连 `raw.githubusercontent.com` 与 `cdn.jsdelivr.net` 在国内网络常被重置，表现为 `SSLHandshakeException` / `Connection reset`）：
 
 ```yaml
 settings:
   theme-repository:
     repository: "Yamada0001/MiaoMenu-theme"
     branch: "main"
-    timeout-millis: 8000
+    timeout-millis: 15000
     prefetch: true            # 启动时后台拉清单，让 download 的 Tab 补全能直接出主题
     sources:
-      - "https://raw.githubusercontent.com/{repository}/{branch}/{path}"
-      - "https://cdn.jsdelivr.net/gh/{repository}@{branch}/{path}"
-```
-
-可用占位符 `{repository}`、`{branch}`、`{path}`；也可以直接写一个目录前缀（如自建镜像 `https://mirror.example.com/themes/`）。
-国内网络直连 `raw.githubusercontent.com` 常见 `SSLHandshakeException` / `Connection reset`，默认已把 jsDelivr 作为后备；需要时可再追加镜像：
-
-```yaml
-    sources:
-      - "https://raw.githubusercontent.com/{repository}/{branch}/{path}"
       - "https://gh-proxy.com/https://raw.githubusercontent.com/{repository}/{branch}/{path}"
 ```
 
-> 镜像同时会提供 `themes.json` 清单，若在意供应链安全，请只保留官方 raw 地址。
+可用占位符 `{repository}`、`{branch}`、`{path}`；也可以直接写一个目录前缀（如自建镜像 `https://mirror.example.com/themes/`）。
+需要多源回退时按优先级追加即可：
 
-主题图片依赖资源包。配置后玩家进服会自动收到：
+```yaml
+    sources:
+      - "https://gh-proxy.com/https://raw.githubusercontent.com/{repository}/{branch}/{path}"
+      - "https://your-mirror.example.com/{path}"
+```
+
+> 镜像同时会提供 `themes.json` 清单，若在意供应链安全，请只保留可信来源。
+
+更新检查走 `api.github.com`（与主题下载共用同一套超时/重定向/错误归一化逻辑），因此"更新检查正常、主题下载失败"通常就是 raw 域名被拦截，换成 gh-proxy 即可。
+
+### 主题图片怎么生效
+
+主题贴图（`image:` 前缀）需要客户端加载对应资源包。有两种方式，**装了资源包插件就用第一种，最省事**：
+
+**方式一：交给 CraftEngine / ItemsAdder / Oraxen（推荐）**
+
+服务器装了这三者之一时，安装主题会自动把主题贴图（`assets/miaomenu/**` 的模型、贴图、图集）写进它们的资源目录，由它们生成并下发资源包。你不需要自己打包、上传或配置 url。
+
+```yaml
+settings:
+  theme-pack:
+    provider: auto            # auto / craftengine / itemsadder / oraxen / none
+    # 资源目录（相对 plugins/），留空用内置默认值：
+    #   craftengine: CraftEngine/resources/miaomenu/resourcepack/assets
+    #   itemsadder:  ItemsAdder/data/resource_pack/assets
+    #   oraxen:      Oraxen/pack/assets
+    craftengine-path: ""
+    itemsadder-path: ""
+    oraxen-path: ""
+    reload-command: ""        # 导出后执行的刷新命令，如 "iareload"；留空只写一条日志
+```
+
+导出后插件会提示写入了多少文件、目标目录在哪；`reload-command` 配上对应插件的重载命令即可自动刷新资源包。
+
+> 这里只复制纯资源文件，不生成各插件的物品定义——`image:` 依赖的是原版 `item_model` 机制，跨版本稳定，不需要为每个插件维护一套 schema。
+
+**方式二：自己托管资源包**
+
+没有上述插件时，配置后玩家进服会自动收到，安装/更新主题后也会对在线玩家重发一次，无需重进服务器：
 
 ```yaml
 settings:

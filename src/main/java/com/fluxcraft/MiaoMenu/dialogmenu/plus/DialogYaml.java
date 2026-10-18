@@ -26,6 +26,14 @@ import io.papermc.paper.registry.data.dialog.DialogBase;
  * {@link IllegalArgumentException} 抛出，由管理器按文件隔离并记录日志。</p>
  */
 public final class DialogYaml {
+    private static final String THEME_IMAGE_PREFIX = "image:";
+    private static final String THEME_IMAGE_NAMESPACE = "miaomenu";
+    private static final String THEME_IMAGE_ATLAS = "miaomenu:menu";
+    /** 图集里 sprite 的路径前缀，对应 atlases/menu.json 的 {@code "prefix": "menu/"}。 */
+    private static final String THEME_IMAGE_SPRITE_PREFIX = "menu/";
+    private static final java.util.regex.Pattern THEME_IMAGE_ID =
+            java.util.regex.Pattern.compile("[a-z0-9_.-]+(:[a-z0-9_./-]+)?");
+
     private final RequirementService requirementService;
 
     public DialogYaml(RequirementService requirementService) {
@@ -306,7 +314,9 @@ public final class DialogYaml {
      * 把物品材质名映射成资源包图标。
      *
      * <p>{@code NETHER_STAR} 与 {@code minecraft:nether_star} 都会得到
-     * {@code minecraft:items} / {@code minecraft:item/nether_star}。</p>
+     * {@code minecraft:items} / {@code minecraft:item/nether_star}；
+     * {@code image:<id>} 映射到主题资源包的自定义图集
+     * {@code miaomenu:menu} / {@code miaomenu:menu/<id>}。</p>
      *
      * <p>这里只做字符串推导，不查询 {@link Material} 注册表——解析阶段
      * 可能没有服务端实例（单元测试），查询注册表会抛 {@code ExceptionInInitializerError}。</p>
@@ -316,11 +326,27 @@ public final class DialogYaml {
         if (normalized.isEmpty()) {
             return null;
         }
+        if (normalized.startsWith(THEME_IMAGE_PREFIX)) {
+            String id = normalized.substring(THEME_IMAGE_PREFIX.length()).trim();
+            if (!THEME_IMAGE_ID.matcher(id).matches()) {
+                return null;
+            }
+            // 允许 image:spring_sakura 与 image:miaomenu:spring_sakura 两种写法，
+            // 统一归一到 "miaomenu:menu/<id>"：
+            // 与 themes/assets/miaomenu/atlases/menu.json 的 prefix "menu/" 对应。
+            if (id.startsWith(THEME_IMAGE_NAMESPACE + ":")) {
+                id = id.substring(THEME_IMAGE_NAMESPACE.length() + 1);
+            }
+            if (id.isBlank() || id.indexOf('/') >= 0) {
+                return null;
+            }
+            return new Button.Icon(THEME_IMAGE_ATLAS, THEME_IMAGE_NAMESPACE + ":" + THEME_IMAGE_SPRITE_PREFIX + id);
+        }
         if (normalized.startsWith("minecraft:")) {
             normalized = normalized.substring("minecraft:".length());
         }
         if (normalized.isEmpty() || normalized.indexOf(':') >= 0) {
-            // 带命名空间的非原版物品无法映射到原版图集，交给调用方忽略。
+            // 其它带命名空间的物品无法映射到原版图集，交给调用方忽略。
             return null;
         }
         return new Button.Icon(Button.Icon.DEFAULT_ATLAS, "minecraft:item/" + normalized);

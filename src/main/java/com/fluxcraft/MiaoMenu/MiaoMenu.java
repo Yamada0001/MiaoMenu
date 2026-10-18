@@ -47,6 +47,7 @@ import com.fluxcraft.MiaoMenu.menu.requirement.RequirementService;
 import com.fluxcraft.MiaoMenu.proxy.ProxyManager;
 import com.fluxcraft.MiaoMenu.security.RateLimiter;
 import com.fluxcraft.MiaoMenu.storage.VariableStore;
+import com.fluxcraft.MiaoMenu.theme.ThemePackExporter;
 import com.fluxcraft.MiaoMenu.theme.ThemeRepository;
 import com.fluxcraft.MiaoMenu.update.UpdateChecker;
 import com.fluxcraft.MiaoMenu.update.UpdateNotifyListener;
@@ -81,6 +82,7 @@ public final class MiaoMenu extends JavaPlugin {
     private UpdateChecker updateChecker;
     private ThemeRepository themeRepository;
     private ResourcePackManager resourcePackManager;
+    private ThemePackExporter themePackExporter;
     private Metrics metrics;
     private final ThreadLocal<Set<String>> menuOpenChain = ThreadLocal.withInitial(LinkedHashSet::new);
     private volatile Class<?> floodgateApiClass;
@@ -184,6 +186,7 @@ public final class MiaoMenu extends JavaPlugin {
         dynamicLR = new DynamicLR(this);
         themeRepository = new ThemeRepository(this);
         resourcePackManager = new ResourcePackManager(this);
+        themePackExporter = new ThemePackExporter(this);
         PlaceholderHook.register(this);
     }
 
@@ -632,5 +635,10 @@ public final class MiaoMenu extends JavaPlugin {
 
     public ResourcePackManager getResourcePackManager() {
         return resourcePackManager;
+    }
+
+    /** 主题贴图导出器：把主题资源交给 CraftEngine / ItemsAdder / Oraxen 打包。 */
+    public ThemePackExporter getThemePackExporter() {
+        return themePackExporter;
     }
 }

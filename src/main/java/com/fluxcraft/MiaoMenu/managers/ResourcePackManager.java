@@ -83,9 +83,32 @@ public final class ResourcePackManager {
         }, delay);
     }
 
+    /**
+     * 给所有在线玩家重新下发资源包。
+     *
+     * <p>主题安装后调用：新贴图只有在客户端重新加载资源包后才会生效，
+     * 否则玩家必须重进服务器。</p>
+     */
+    public void resendToAll() {
+        if (!isEnabled()) {
+            return;
+        }
+        org.bukkit.Server server;
+        try {
+            server = plugin.getServer();
+        } catch (RuntimeException e) {
+            return;
+        }
+        if (server == null) {
+            return;
+        }
+        for (Player player : server.getOnlinePlayers()) {
+            send(player);
+        }
+    }
+
     /** 立即给单个玩家下发（配置错误时只告警一次）。 */
-    public void send(Player player) {
-        if (player == null || !plugin.getConfig().getBoolean("settings.resource-pack.enabled", false)) {
+    public void send(Player player) {        if (player == null || !plugin.getConfig().getBoolean("settings.resource-pack.enabled", false)) {
             return;
         }
         if (delegatedToOtherPackPlugin()) {

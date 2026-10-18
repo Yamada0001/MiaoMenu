@@ -305,14 +305,14 @@ public class ItemResolver {
         if (!IMAGE_ID.matcher(key).matches()) {
             warnOnce("image-id:" + key,
                     "Invalid image id '" + key + "'; expected something like image:spring_sakura.");
-            return new ItemStack(fallbackMaterial);
+            return placeholder("?", "invalid-id");
         }
         String namespaced = key.indexOf(':') > 0 ? key : "miaomenu:" + key;
         org.bukkit.NamespacedKey modelKey = org.bukkit.NamespacedKey.fromString(namespaced);
         ItemStack item = new ItemStack(Material.PAPER);
         if (modelKey == null) {
             warnOnce("image-key:" + key, "Invalid image model key '" + namespaced + "'.");
-            return item;
+            return placeholder(key, "invalid-key");
         }
         org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
         if (meta != null) {
@@ -323,10 +323,56 @@ public class ItemResolver {
                 // 旧服务端没有 item_model 组件时保持普通纸张，不影响菜单打开
                 warnOnce("image-model:" + key,
                         "Server does not support item_model, '" + key + "' renders as plain paper: " + e);
+                return placeholder(key, "no-item-model");
             }
+        }
+        // 资源包没启用时贴图不会出现，给一个可读的占位名，避免"空白纸片"让人困惑。
+        if (!isThemePackActive()) {
+            warnOnce("image-pack:" + key,
+                    "Theme image '" + key + "' needs the resource pack; configure "
+                            + "settings.resource-pack.url and reload to show it.");
+            ItemStack placeholder = placeholder(key, "no-pack");
+            applyCustomModelData(placeholder, customModelData);
+            return placeholder;
         }
         applyCustomModelData(item, customModelData);
         return item;
+    }
+
+    /**
+     * 主题贴图不可用时的占位物品。
+     *
+     * <p>用纸张 + 可读名字，而不是静默显示一张空白纸；名字里的 id 便于服主
+     * 对照资源包排查缺哪张贴图。</p>
+     */
+    private ItemStack placeholder(String id, String reason) {
+        ItemStack item = new ItemStack(Material.PAPER);
+        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            String label = com.fluxcraft.MiaoMenu.utils.Lang.get("menu.image-placeholder")
+                    .replace("{0}", id == null || id.isBlank() ? "?" : id);
+            meta.displayName(net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer
+                    .legacyAmpersand()
+                    .deserialize(label)
+                    .decoration(net.kyori.adventure.text.format.TextDecoration.ITALIC, false));
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    /** 资源包是否真的在给客户端发主题贴图。 */
+    private boolean isThemePackActive() {
+        try {
+            if (plugin.getResourcePackManager() != null
+                    && plugin.getResourcePackManager().isEnabled()) {
+                return true;
+            }
+            // 已把贴图导出给 CraftEngine / ItemsAdder / Oraxen 时，由它们负责下发。
+            return plugin.getThemePackExporter() != null
+                    && plugin.getThemePackExporter().hasExportedPack();
+        } catch (RuntimeException e) {
+            return false;
+        }
     }
 
     private ItemStack resolveBase64Head(String base64) {

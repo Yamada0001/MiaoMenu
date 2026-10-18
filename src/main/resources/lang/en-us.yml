@@ -32,7 +32,7 @@ descriptions:
   open: "&aOpen a specific menu"
   reload: "&cReload the configuration and all menus"
   update: "&bCheck whether a newer plugin version exists"
-  download: "&dDownload and install a theme menu"
+  download: "&dDownload and install theme menus (pick from a clickable list)"
   help: "&eShow this help page"
 
 theme:
@@ -52,6 +52,21 @@ theme:
   busy: "&7A theme download is already running, please try again later."
   unavailable: "&cTheme downloading is currently unavailable."
   error: "&cThe theme download could not run. See the console log for details."
+  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3} &8({4} files)"
+  list-entry-hover: "&7Click to install theme &e{0}"
+  list-click-hint: "&8Tip: click any theme above to install it."
+  unknown-suggest: "&7Did you mean: &e{0}"
+  progress.starting: "&7Preparing to download &e{0}&7..."
+  progress.line: "&d{0} &8{1} &f{2}% &7({3}/{4} files, {5}/{6}) &8{7}"
+  progress.line-unknown-size: "&d{0} &8{1} &f{2}% &7({3}/{4} files, {5} downloaded) &8{7}"
+  cancel-requested: "&7Cancellation requested for &e{0}&7; it will stop after the current file."
+  cancel-none: "&7No theme download is running."
+  cancelled: "&eTheme &6{0}&e download cancelled."
+  open-button: "&a[Click to open &e{0}&a]"
+  open-button-hover: "&7Click to run &f{0}"
+  retry-hint: "&7Retry: &f/{0} download {1} --force"
+  pack-exported: "&aTheme textures exported to &e{0}&a ({1} files -> &7{2}&a); that plugin builds the resource pack."
+  pack-hint: "&7Theme images need a resource pack: install CraftEngine/ItemsAdder/Oraxen so MiaoMenu can export them, or set settings.resource-pack.url and run /{0} reload."
 
 update:
   checking: "&7Checking for updates, please wait..."
@@ -71,6 +86,7 @@ open:
   error: "&cThe menu could not be opened. See the console log for details."
 
 menu:
+  image-placeholder: "&7[Theme image] &f{0} &8(resource pack required)"
   clock:
     name: "&6Chronolens &7(Right-click to open the menu)"
     given: "&aYou received the Chronolens. Right-click it to open the menu."

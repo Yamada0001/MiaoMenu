@@ -33,7 +33,7 @@ descriptions:
   open: "&aMở một menu cụ thể"
   reload: "&cTải lại cấu hình và toàn bộ menu"
   update: "&bKiểm tra xem có phiên bản plugin mới hơn không"
-  download: "&dTải và cài đặt menu theo chủ đề"
+  download: "&dTải và cài menu chủ đề (chọn từ danh sách có thể nhấp)"
   help: "&eHiển thị trang trợ giúp này"
 
 theme:
@@ -53,6 +53,21 @@ theme:
   busy: "&7Đang có một lần tải chủ đề, vui lòng thử lại sau."
   unavailable: "&cChức năng tải chủ đề hiện không khả dụng."
   error: "&cKhông thể chạy tải chủ đề. Xem log console để biết chi tiết."
+  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3} &8({4} tệp)"
+  list-entry-hover: "&7Nhấp để cài chủ đề &e{0}"
+  list-click-hint: "&8Mẹo: nhấp vào chủ đề ở trên để cài đặt."
+  unknown-suggest: "&7Có phải bạn muốn: &e{0}"
+  progress.starting: "&7Đang chuẩn bị tải &e{0}&7..."
+  progress.line: "&d{0} &8{1} &f{2}% &7({3}/{4} tệp, {5}/{6}) &8{7}"
+  progress.line-unknown-size: "&d{0} &8{1} &f{2}% &7({3}/{4} tệp, đã tải {5}) &8{7}"
+  cancel-requested: "&7Đã yêu cầu hủy tải &e{0}&7; sẽ dừng sau khi xong tệp hiện tại."
+  cancel-none: "&7Hiện không có bản tải chủ đề nào."
+  cancelled: "&eĐã hủy tải chủ đề &6{0}&e."
+  open-button: "&a[Nhấp để mở &e{0}&a]"
+  open-button-hover: "&7Nhấp để chạy &f{0}"
+  retry-hint: "&7Thử lại: &f/{0} download {1} --force"
+  pack-exported: "&aĐã xuất ảnh chủ đề sang &e{0}&a ({1} tệp -> &7{2}&a); plugin đó sẽ tạo resource pack."
+  pack-hint: "&7Ảnh chủ đề cần resource pack: cài CraftEngine/ItemsAdder/Oraxen để MiaoMenu tự xuất, hoặc đặt settings.resource-pack.url rồi chạy /{0} reload."
 
 update:
   checking: "&7Đang kiểm tra cập nhật, vui lòng đợi..."
@@ -72,6 +87,7 @@ open:
   error: "&cKhông thể mở menu. Xem log console để biết chi tiết."
 
 menu:
+  image-placeholder: "&7[Ảnh chủ đề] &f{0} &8(cần resource pack)"
   clock:
     name: "&6Kính Thời Gian &7(Chuột phải để mở menu)"
     given: "&aBạn đã nhận Kính Thời Gian. Chuột phải để mở menu."

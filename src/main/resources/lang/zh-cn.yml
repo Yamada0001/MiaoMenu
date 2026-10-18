@@ -33,7 +33,7 @@ descriptions:
   open: "&a打开指定的菜单"
   reload: "&c重新加载配置与全部菜单"
   update: "&b检查插件是否有新版本"
-  download: "&d下载并安装主题菜单"
+  download: "&d下载并安装主题菜单（点开列表可直接选择）"
   help: "&e显示本帮助页面"
 
 theme:
@@ -41,7 +41,7 @@ theme:
   list-failed: "&c无法获取主题列表，请检查网络或 settings.theme-repository 配置。原因：&7{0}"
   empty: "&7远端仓库还没有发布任何主题。"
   list-header: "&d可用主题 &7(&f{0}&7)"
-  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3}"
+  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3} &8({4} 个文件)"
   list-usage: "&7用法：&f/{0} download <主题ID> [--force]"
   downloading: "&7正在下载主题 &e{0}&7……"
   installed: "&a主题 &e{0}&a 已安装，写入 &e{1}&a 个文件。"
@@ -53,6 +53,21 @@ theme:
   busy: "&7已有一次主题下载正在进行，请稍后再试。"
   unavailable: "&c主题下载功能当前不可用。"
   error: "&c主题下载执行失败，详细信息请查看控制台日志。"
+  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3} &8({4} 个文件)"
+  list-entry-hover: "&7点击安装主题 &e{0}"
+  list-click-hint: "&8提示：直接点击上方任意主题即可安装。"
+  unknown-suggest: "&7你是不是想找：&e{0}"
+  progress.starting: "&7正在准备下载 &e{0}&7……"
+  progress.line: "&d{0} &8{1} &f{2}% &7({3}/{4} 文件, {5}/{6}) &8{7}"
+  progress.line-unknown-size: "&d{0} &8{1} &f{2}% &7({3}/{4} 文件, 已下载 {5}) &8{7}"
+  cancel-requested: "&7已请求取消主题 &e{0}&7 的下载，将在当前文件完成后停止。"
+  cancel-none: "&7当前没有正在进行的主题下载。"
+  cancelled: "&e主题 &6{0}&e 的下载已取消。"
+  open-button: "&a[点击打开 &e{0}&a]"
+  open-button-hover: "&7点击执行 &f{0}"
+  retry-hint: "&7重试：&f/{0} download {1} --force"
+  pack-exported: "&a主题贴图已导出到 &e{0}&a（{1} 个文件 → &7{2}&a），由它生成资源包。"
+  pack-hint: "&7主题贴图需要资源包：可安装 CraftEngine/ItemsAdder/Oraxen 让本插件自动导出，或在 settings.resource-pack 配置 url 后执行 /{0} reload。"
 
 update:
   checking: "&7正在检查更新，请稍候……"
@@ -72,6 +87,7 @@ open:
   error: "&c菜单打开失败，详细信息请查看控制台日志。"
 
 menu:
+  image-placeholder: "&7[主题图片] &f{0} &8(需要资源包)"
   clock:
     name: "&6时光之镜 &7(右键打开菜单)"
     given: "&a你获得了时光之镜，右键即可打开菜单。"

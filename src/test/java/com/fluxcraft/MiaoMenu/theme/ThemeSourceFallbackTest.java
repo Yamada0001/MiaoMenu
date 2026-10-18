@@ -1,8 +1,10 @@
 package com.fluxcraft.MiaoMenu.theme;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -12,6 +14,8 @@ import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -19,8 +23,10 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import com.fluxcraft.MiaoMenu.MiaoMenu;
+import com.fluxcraft.MiaoMenu.net.HttpFetcher;
 import com.sun.net.httpserver.HttpServer;
 
 /**
@@ -44,6 +50,9 @@ class ThemeSourceFallbackTest {
 
     private HttpServer server;
     private final List<String> requested = new CopyOnWriteArrayList<>();
+
+    @TempDir
+    Path dataFolder;
 
     @BeforeEach
     void startServer() throws IOException {
@@ -133,6 +142,80 @@ class ThemeSourceFallbackTest {
         assertEquals(0, repository.cachedThemeIds().size());
     }
 
+    @Test
+    void defaultSourceUsesGhProxy() {
+        // 未配置 sources 时必须回落到 gh-proxy，直连 raw/jsDelivr 在受限网络下会握手失败。
+        ThemeRepository repository = new ThemeRepository(pluginWithSources(List.of()));
+
+        assertEquals(
+                List.of("https://gh-proxy.com/https://raw.githubusercontent.com/"
+                        + "Yamada0001/MiaoMenu-theme/main/{path}"),
+                repository.sourceTemplates()
+        );
+    }
+
+    @Test
+    void reportsDownloadProgressAndCompletes() throws Exception {
+        ThemeRepository repository = new ThemeRepository(pluginWithSources(List.of(baseUrl() + "{path}")));
+        repository.loadManifestAsync().get();
+
+        // 通过清单拿到文件条目后直接驱动一次安装，验证进度回调不会中断下载。
+        ThemeManifest manifest = repository.cachedManifest();
+        assertNotNull(manifest);
+        String source = manifest.themes().getFirst().files().getFirst().source();
+
+        List<String> progress = new CopyOnWriteArrayList<>();
+        byte[] body = new HttpFetcher(List.of(baseUrl() + "{path}"), "", "", 5000)
+                .fetch(source, (done, total) -> progress.add(done + "/" + total), () -> false);
+
+        assertTrue(body.length > 0);
+        assertFalse(progress.isEmpty(), "应当至少回调一次进度");
+        assertTrue(progress.getLast().endsWith("/" + body.length) || progress.getLast().startsWith(String.valueOf(body.length)),
+                () -> "最后一次进度应等于文件长度：" + progress.getLast());
+    }
+
+    @Test
+    void cancellationStopsTheDownload() {
+        HttpFetcher fetcher = new HttpFetcher(List.of(baseUrl() + "{path}"), "", "", 5000);
+
+        assertThrows(HttpFetcher.CancelledException.class,
+                () -> fetcher.fetch("themes.json", null, () -> true));
+    }
+
+    @Test
+    void installsThemeFilesThroughTheConfiguredSource() throws Exception {
+        ThemeRepository repository = new ThemeRepository(pluginWithSources(List.of(baseUrl() + "{path}")));
+
+        ThemeRepository.InstallReport report = repository.install("demo", false);
+
+        assertTrue(report.success(), () -> "安装失败：" + report.error());
+        assertNotNull(report.theme());
+        assertEquals(List.of("java_menus/demo.yml"), report.written());
+        Path installed = dataFolder.resolve("java_menus/demo.yml");
+        assertTrue(Files.isRegularFile(installed), "主题文件应写入数据目录");
+        assertEquals("title: Demo\n", Files.readString(installed));
+    }
+
+    @Test
+    void secondInstallSkipsExistingFilesUnlessForced() throws Exception {
+        ThemeRepository repository = new ThemeRepository(pluginWithSources(List.of(baseUrl() + "{path}")));
+        assertTrue(repository.install("demo", false).success());
+
+        ThemeRepository.InstallReport second = repository.install("demo", false);
+
+        assertTrue(second.success());
+        assertTrue(second.written().isEmpty(), "默认不应覆盖已存在文件");
+        assertEquals(List.of("java_menus/demo.yml"), second.skipped());
+    }
+
+    @Test
+    void cancelInstallIsIgnoredWhenNothingIsRunning() {
+        ThemeRepository repository = new ThemeRepository(pluginWithSources(List.of(baseUrl() + "{path}")));
+
+        assertNull(repository.installingThemeId());
+        assertFalse(repository.cancelInstall(), "空闲时不应报告取消成功");
+    }
+
     private static int closedPort() throws IOException {
         try (ServerSocket socket = new ServerSocket(0)) {
             return socket.getLocalPort();
@@ -143,11 +226,12 @@ class ThemeSourceFallbackTest {
         return "http://127.0.0.1:" + server.getAddress().getPort() + "/";
     }
 
-    private static MiaoMenu pluginWithSources(List<String> sources) {
+    private MiaoMenu pluginWithSources(List<String> sources) {
         YamlConfiguration config = new YamlConfiguration();
         config.set("settings.theme-repository.sources", sources);
         MiaoMenu plugin = mock(MiaoMenu.class);
         when(plugin.getConfig()).thenReturn(config);
+        when(plugin.getDataFolder()).thenReturn(dataFolder.toFile());
         when(plugin.getLogger()).thenReturn(java.util.logging.Logger.getLogger("MiaoMenuTest"));
         return plugin;
     }

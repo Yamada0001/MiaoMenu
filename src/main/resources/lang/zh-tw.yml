@@ -33,7 +33,7 @@ descriptions:
   open: "&a開啟指定的選單"
   reload: "&c重新載入設定與全部選單"
   update: "&b檢查插件是否有新版本"
-  download: "&d下載並安裝主題選單"
+  download: "&d下載並安裝主題選單（點開清單可直接選擇）"
   help: "&e顯示本說明頁面"
 
 theme:
@@ -53,6 +53,21 @@ theme:
   busy: "&7已有一次主題下載正在進行，請稍後再試。"
   unavailable: "&c主題下載功能目前不可用。"
   error: "&c主題下載執行失敗，詳細資訊請查看主控台日誌。"
+  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3} &8({4} 個檔案)"
+  list-entry-hover: "&7點擊安裝主題 &e{0}"
+  list-click-hint: "&8提示：直接點擊上方任一主題即可安裝。"
+  unknown-suggest: "&7你是不是想找：&e{0}"
+  progress.starting: "&7正在準備下載 &e{0}&7……"
+  progress.line: "&d{0} &8{1} &f{2}% &7({3}/{4} 檔案, {5}/{6}) &8{7}"
+  progress.line-unknown-size: "&d{0} &8{1} &f{2}% &7({3}/{4} 檔案, 已下載 {5}) &8{7}"
+  cancel-requested: "&7已請求取消主題 &e{0}&7 的下載，將在目前檔案完成後停止。"
+  cancel-none: "&7目前沒有正在進行的主題下載。"
+  cancelled: "&e主題 &6{0}&e 的下載已取消。"
+  open-button: "&a[點擊開啟 &e{0}&a]"
+  open-button-hover: "&7點擊執行 &f{0}"
+  retry-hint: "&7重試：&f/{0} download {1} --force"
+  pack-exported: "&a主題貼圖已匯出到 &e{0}&a（{1} 個檔案 → &7{2}&a），由它產生資源包。"
+  pack-hint: "&7主題貼圖需要資源包：可安裝 CraftEngine/ItemsAdder/Oraxen 讓本外掛自動匯出，或在 settings.resource-pack 設定 url 後執行 /{0} reload。"
 
 update:
   checking: "&7正在檢查更新，請稍候……"
@@ -72,6 +87,7 @@ open:
   error: "&c選單開啟失敗，詳細資訊請查看主控台記錄。"
 
 menu:
+  image-placeholder: "&7[主題圖片] &f{0} &8(需要資源包)"
   clock:
     name: "&6時光之鏡 &7(右鍵開啟選單)"
     given: "&a你取得了時光之鏡，右鍵即可開啟選單。"
