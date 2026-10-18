@@ -274,16 +274,19 @@ public final class ThemeRepository {
             return;
         }
         try {
-            Path pluginsFolder = plugin.getServer() == null
+            // 必须写到**包内**的 configuration/images.yml：
+            // CE 只按包为单位加载配置并生成字体，写全局目录不会触发字体生成，
+            // <image:...> 就会原样显示成字符。
+            Path packConfiguration = exportedAssets.getParent() == null
                     ? null
-                    : plugin.getServer().getPluginsFolder().toPath();
-            if (pluginsFolder == null) {
+                    : exportedAssets.getParent().getParent().resolve("configuration");
+            if (packConfiguration == null) {
                 return;
             }
             int height = plugin.getConfig().getInt("settings.theme-pack.craftengine-image-height", 200);
             int ascent = plugin.getConfig().getInt("settings.theme-pack.craftengine-image-ascent", 6);
             CraftEngineImageRegistry registry = new CraftEngineImageRegistry(
-                    pluginsFolder.resolve("CraftEngine/configuration/images.yml"),
+                    packConfiguration.resolve("images.yml"),
                     height,
                     ascent
             );
