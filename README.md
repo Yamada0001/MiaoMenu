@@ -453,12 +453,46 @@ tasks:
 | `/dgm download <主题ID> --force` | 覆盖已存在的同名文件 |
 | `/dgm download cancel` | 取消正在进行的下载 |
 
-| 主题 ID | 名称 | 季节 |
-|---------|------|------|
-| `spring_sakura` | 春日樱花 | 春 |
-| `summer_beach` | 夏日海滩 | 夏 |
-| `autumn_forest` | 秋日森林 | 秋 |
-| `winter_snow` | 冬季飘雪 | 冬 |
+### 主题预览
+
+全部主题使用同一套 Minecraft 光影截图风格（体积光、环境光遮蔽、泛光、景深）。
+
+#### 四季主题
+
+| 春日樱花 | 夏日海滩 |
+|:---:|:---:|
+| <img src="pic/themes/spring_sakura.jpg" width="380" alt="春日樱花"> | <img src="pic/themes/summer_beach.jpg" width="380" alt="夏日海滩"> |
+| `spring_sakura` · 富士山、鸟居、樱花石阶 | `summer_beach` · 椰林、分层海浪、热气球 |
+
+| 秋日森林 | 冬季飘雪 |
+|:---:|:---:|
+| <img src="pic/themes/autumn_forest.jpg" width="380" alt="秋日森林"> | <img src="pic/themes/winter_snow.jpg" width="380" alt="冬季飘雪"> |
+| `autumn_forest` · 层叠秋山、西欧小镇、石桥 | `winter_snow` · 峡湾雪山、北欧木屋、圣诞雪橇 |
+
+#### 节日主题
+
+| 元旦 | 春节 | 元宵节 |
+|:---:|:---:|:---:|
+| <img src="pic/themes/new_year.jpg" width="250" alt="元旦"> | <img src="pic/themes/spring_festival.jpg" width="250" alt="春节"> | <img src="pic/themes/lantern_festival.jpg" width="250" alt="元宵节"> |
+| `new_year` · 跨年钟楼与烟花 | `spring_festival` · 红灯笼与舞龙 | `lantern_festival` · 河灯与满月 |
+
+| 清明节 | 端午节 | 七夕节 |
+|:---:|:---:|:---:|
+| <img src="pic/themes/qingming.jpg" width="250" alt="清明节"> | <img src="pic/themes/dragon_boat.jpg" width="250" alt="端午节"> | <img src="pic/themes/qixi.jpg" width="250" alt="七夕节"> |
+| `qingming` · 细雨垂柳与青绿山野 | `dragon_boat` · 龙舟竞渡与粽叶 | `qixi` · 鹊桥与星河 |
+
+| 中秋节 | 愚人节 | 国庆节 |
+|:---:|:---:|:---:|
+| <img src="pic/themes/mid_autumn.jpg" width="250" alt="中秋节"> | <img src="pic/themes/april_fools.jpg" width="250" alt="愚人节"> | <img src="pic/themes/national_day.jpg" width="250" alt="国庆节"> |
+| `mid_autumn` · 满月与月饼茶席 | `april_fools` · 彩带与倒转风车 | `national_day` · 红旗花坛与城楼 |
+
+| 情人节 | 万圣节 | 圣诞节 | 复活节 |
+|:---:|:---:|:---:|:---:|
+| <img src="pic/themes/valentine.jpg" width="190" alt="情人节"> | <img src="pic/themes/halloween.jpg" width="190" alt="万圣节"> | <img src="pic/themes/christmas.jpg" width="190" alt="圣诞节"> | <img src="pic/themes/easter.jpg" width="190" alt="复活节"> |
+| `valentine` · 玫瑰与心形气球 | `halloween` · 南瓜灯与鬼屋 | `christmas` · 圣诞树与雪村 | `easter` · 彩蛋与兔子 |
+
+> 预览图位于 `pic/themes/`，与主题仓库中的贴图一致。安装后由 `image:` 前缀引用，未加载资源包时会退化为纸张。
+
 
 - 下载目标只允许 `java_menus/`、`dialog_menus/`、`bedrock_menus/`、`themes/`、`lang/`，清单里出现 `..` 或绝对路径会被拒绝；
 - 已存在的文件默认跳过，避免覆盖你手改过的菜单；
