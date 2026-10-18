@@ -7,6 +7,7 @@ on:
     branches: ['**']
   workflow_dispatch:
 
+# 默认只读；只有发布 Release 的 job 单独提权到 contents: write
 permissions:
   contents: read
 
@@ -17,17 +18,27 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.value }}
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '25'
           cache: maven
+
+      - name: Read project version
+        id: version
+        run: echo "value=$(grep -m1 -oP '(?<=<version>)[^<]+' pom.xml)" >> "$GITHUB_OUTPUT"
+
       - name: Compile
         run: mvn -B -q compile
+
       - name: Build and Test
         run: mvn -B verify
+
       - name: Upload Artifact
         if: success()
         uses: actions/upload-artifact@v4
@@ -37,3 +48,77 @@ jobs:
           path: |
             target/*.jar
             !target/original-*.jar
+
+  release:
+    needs: build
+    # 只在向仓库推送提交时发布：PR、手动触发、删除分支都不产生 Release
+    if: github.event_name == 'push' && !github.event.deleted
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download shaded jar
+        uses: actions/download-artifact@v4
+        with:
+          name: MiaoMenu-${{ github.sha }}
+          path: dist
+
+      - name: Compose release notes
+        env:
+          PYTHONIOENCODING: utf-8
+          VERSION: ${{ needs.build.outputs.version }}
+          COMMITS_JSON: ${{ toJSON(github.event.commits) }}
+          BRANCH: ${{ github.ref_name }}
+          ACTOR: ${{ github.actor }}
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python3 - <<'PY'
+          import json, os
+
+          env = os.environ
+          commits = json.loads(env.get("COMMITS_JSON") or "[]")
+
+          out = []
+          out.append("## 版本\n")
+          out.append("`%s` · build #%s\n" % (env.get("VERSION", ""), env.get("GITHUB_RUN_NUMBER", "")))
+          out.append("## 提交叙述\n")
+
+          if commits:
+              for commit in commits:
+                  sha = commit.get("id") or ""
+                  message = (commit.get("message") or "").rstrip("\r\n")
+                  author = commit.get("author") or {}
+                  name = author.get("name") or "未知"
+                  username = author.get("username") or ""
+                  by = "%s (@%s)" % (name, username) if username else name
+                  out.append("### %s\n" % sha[:7])
+                  out.append("%s\n" % message)
+                  out.append("- 作者：%s" % by)
+                  out.append("- 链接：%s\n" % (commit.get("url") or ""))
+          else:
+              out.append("_本次推送没有可展示的提交记录_\n")
+
+          out.append("\n## 构建信息\n")
+          out.append("- 分支：`%s`" % env.get("BRANCH", ""))
+          out.append("- 推送者：%s" % env.get("ACTOR", ""))
+          out.append("- 仓库：%s" % env.get("REPO_URL", ""))
+          out.append("- 运行记录：%s" % env.get("RUN_URL", ""))
+
+          notes = "\n".join(out) + "\n"
+          with open("release-notes.md", "w", encoding="utf-8") as handle:
+              handle.write(notes)
+          print(notes)
+          PY
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.build.outputs.version }}-build.${{ github.run_number }}
+          # 引号必须保留：未加引号时 YAML 会把 " #" 之后当作注释丢弃
+          name: "${{ needs.build.outputs.version }} build #${{ github.run_number }}"
+          # 每次提交的自动构建是快照，不冒充正式版本；需要正式版时手动打 tag 即可
+          prerelease: true
+          fail_on_unmatched_files: true
+          files: dist/*.jar
+          body_path: release-notes.md
