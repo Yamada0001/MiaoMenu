@@ -293,7 +293,30 @@ public final class MiaoMenu extends JavaPlugin {
         }
         initializeUpdateChecker();
         initializeThemePrefetch();
+        initializeBedrockRetry();
         initializeBStats();
+    }
+
+    /**
+     * 启动后再探测一次 Floodgate。
+     *
+     * <p>插件启用顺序由服务端决定，Floodgate 可能在本插件之后才启用；启动瞬间
+     * 探测不到就会把基岩菜单永久关掉。这里延迟重试一次，探测到就补加载。</p>
+     */
+    private void initializeBedrockRetry() {
+        if (bedrockMenuManager == null) {
+            return;
+        }
+        HandySchedulerUtil.runTaskLater(() -> {
+            if (bedrockMenuManager.isEnabled()) {
+                return;
+            }
+            if (!isFloodgatePresent()) {
+                return;
+            }
+            getLogger().info(Lang.get("log.bedrock-menu.late-detected"));
+            bedrockMenuManager.loadAllMenus();
+        }, 100L);
     }
 
     /**
@@ -313,6 +336,17 @@ public final class MiaoMenu extends JavaPlugin {
                 int generated = ThemeAssets.ensure(getDataFolder().toPath().resolve("themes"));
                 if (generated > 0) {
                     getLogger().info("Prepared " + generated + " theme asset file(s) for item models.");
+                }
+                // 已安装的主题也补一份"54 格铺满背景"的 Java 菜单（存在则跳过）。
+                if (getConfig().getBoolean("settings.theme-pack.generate-background-menus", true)) {
+                    int menus = com.fluxcraft.MiaoMenu.theme.JavaBackgroundMenuWriter.writeAll(
+                            getDataFolder().toPath().resolve("java_menus"),
+                            getDataFolder().toPath().resolve("themes/assets/miaomenu/textures")
+                    );
+                    if (menus > 0) {
+                        getLogger().info("Generated " + menus + " theme background menu(s).");
+                        HandySchedulerUtil.runTask(this::reloadAllMenus);
+                    }
                 }
             } catch (java.io.IOException e) {
                 getLogger().log(Level.WARNING, "Could not prepare theme assets", e);

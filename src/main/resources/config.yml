@@ -87,6 +87,13 @@ settings:
     itemsadder-path: ""
     oraxen-path: ""
     reload-command: "" # 导出后执行的刷新命令，如 "iareload"；留空只写一条日志
+    # 给每个主题生成一份"6 行箱子铺满贴图"的 Java 菜单（theme-<id>-bg.yml）。
+    # 原生 Dialog 没有背景图概念，需要整屏背景时用这个 Java 菜单。
+    generate-background-menus: true
+    # 同时把主题图注册到 CraftEngine 的 images.yml，供 <image:miaomenu:<id>> 标签使用。
+    # height 是显示高度（像素），ascent 是基线偏移（必须 <= height）。
+    craftengine-image-height: 200
+    craftengine-image-ascent: 6
 
   # 资源包下发：主题图片（image: 前缀）需要客户端加载主题资源包才能显示。
   # 未配置 url 时该功能自动跳过，菜单仍可正常使用（图片显示为纸张）。

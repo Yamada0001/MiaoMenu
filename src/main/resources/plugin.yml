@@ -5,7 +5,7 @@ api-version: '26.2'
 description: 轻量级Java版和基岩版菜单插件
 author: MingLi
 folia-supported: true
-softdepend: [Floodgate, PlaceholderAPI, CraftEngine]
+softdepend: [floodgate, Floodgate, PlaceholderAPI, CraftEngine]
 commands:
   dgeysermenu:
     description: 主命令

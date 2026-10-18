@@ -253,12 +253,67 @@ public final class ThemeRepository {
         }
         ThemePackExporter.ExportResult result = exporter.export(themesRoot.resolve("assets"));
         if (result.exported()) {
+            // CE 还能用 <image:...> 在 Dialog 正文里显示大图，需要先注册 images 条目。
+            if (result.provider() == ThemePackExporter.Provider.CRAFTENGINE) {
+                registerCraftEngineImages(result.target());
+            }
             exporter.reloadProvider(result.provider());
         } else if (result.error() != null && active) {
             plugin.getLogger().warning("Could not export theme assets to "
                     + result.provider().pluginName() + ": " + result.error());
         }
+        writeBackgroundMenus();
         return result;
+    }
+
+    /**
+     * 把主题图注册成 CraftEngine 的 {@code images} 条目，供 {@code <image:...>} 使用。
+     */
+    private void registerCraftEngineImages(@Nullable Path exportedAssets) {
+        if (exportedAssets == null) {
+            return;
+        }
+        try {
+            Path pluginsFolder = plugin.getServer() == null
+                    ? null
+                    : plugin.getServer().getPluginsFolder().toPath();
+            if (pluginsFolder == null) {
+                return;
+            }
+            int height = plugin.getConfig().getInt("settings.theme-pack.craftengine-image-height", 200);
+            int ascent = plugin.getConfig().getInt("settings.theme-pack.craftengine-image-ascent", 6);
+            CraftEngineImageRegistry registry = new CraftEngineImageRegistry(
+                    pluginsFolder.resolve("CraftEngine/configuration/images.yml"),
+                    height,
+                    ascent
+            );
+            int registered = registry.register(exportedAssets.resolve("miaomenu").resolve("textures"));
+            if (registered > 0 && active) {
+                plugin.getLogger().info("Registered " + registered
+                        + " theme image(s) for CraftEngine <image:...> tags.");
+            }
+        } catch (IOException | RuntimeException e) {
+            if (active) {
+                plugin.getLogger().log(Level.WARNING, "Could not register CraftEngine images", e);
+            }
+        }
+    }
+
+    /** 生成"54 格铺满背景"的 Java 菜单（已存在则跳过）。 */
+    private void writeBackgroundMenus() {
+        try {
+            int written = JavaBackgroundMenuWriter.writeAll(
+                    plugin.getDataFolder().toPath().resolve("java_menus"),
+                    plugin.getDataFolder().toPath().resolve("themes/assets/miaomenu/textures")
+            );
+            if (written > 0 && active) {
+                plugin.getLogger().info("Generated " + written + " theme background menu(s).");
+            }
+        } catch (IOException | RuntimeException e) {
+            if (active) {
+                plugin.getLogger().log(Level.WARNING, "Could not generate background menus", e);
+            }
+        }
     }
 
     /** 同步安装实现（包内可见，便于测试直接驱动）。 */
