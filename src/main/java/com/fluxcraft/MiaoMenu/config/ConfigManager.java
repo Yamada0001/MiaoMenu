@@ -183,6 +183,12 @@ public class ConfigManager {
         // 图集则决定 Dialog 按钮的 sprite 图标能否解析。
         saveResourceIfNotExists("themes/pack.mcmeta");
         saveResourceIfNotExists("themes/assets/miaomenu/atlases/menu.json");
+        // 随包主题贴图（原图）。物品模型需要的 textures/item 副本由
+        // ThemeAssets.ensure() 在启动时生成，避免 jar 里重复存两份大图。
+        for (String theme : java.util.List.of("spring_sakura", "summer_beach", "autumn_forest", "winter_snow")) {
+            saveResourceIfNotExists("themes/assets/miaomenu/models/menu/" + theme + ".json");
+            saveResourceIfNotExists("themes/assets/miaomenu/textures/gui/sprites/menu/" + theme + ".png");
+        }
     }
 
     private void saveResourceIfNotExists(String path) {

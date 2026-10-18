@@ -241,8 +241,17 @@ public final class ThemeRepository {
         if (exporter == null) {
             return ThemePackExporter.ExportResult.none();
         }
-        ThemePackExporter.ExportResult result = exporter.export(
-                plugin.getDataFolder().toPath().resolve("themes").resolve("assets"));
+        Path themesRoot = plugin.getDataFolder().toPath().resolve("themes");
+        try {
+            // 主题仓库把贴图放在 gui/sprites 下，物品模型采样不到；
+            // 这里补齐 textures/item + models/item 的标准副本。
+            ThemeAssets.ensure(themesRoot);
+        } catch (IOException e) {
+            if (active) {
+                plugin.getLogger().log(Level.WARNING, "Could not normalise theme assets", e);
+            }
+        }
+        ThemePackExporter.ExportResult result = exporter.export(themesRoot.resolve("assets"));
         if (result.exported()) {
             exporter.reloadProvider(result.provider());
         } else if (result.error() != null && active) {

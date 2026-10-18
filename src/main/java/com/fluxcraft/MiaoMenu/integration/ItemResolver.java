@@ -368,17 +368,21 @@ public class ItemResolver {
     /**
      * 把 {@code image:} 后面的写法归一成资源包里的模型 ID。
      *
+     * <p>模型位于 {@code assets/miaomenu/models/item/menu/<id>.json}，也就是
+     * {@code miaomenu:item/menu/<id>}——贴图必须放在 {@code textures/item/} 下，
+     * 否则物品模型采样不到（{@code gui/sprites} 只服务于 Dialog 的 sprite 图标）。</p>
+     *
      * <ul>
-     *   <li>{@code spring_sakura} → {@code miaomenu:menu/spring_sakura}</li>
-     *   <li>{@code miaomenu:spring_sakura} → {@code miaomenu:menu/spring_sakura}</li>
-     *   <li>{@code miaomenu:menu/spring_sakura} → 原样保留（已写全路径）</li>
+     *   <li>{@code spring_sakura} → {@code miaomenu:item/menu/spring_sakura}</li>
+     *   <li>{@code miaomenu:spring_sakura} → {@code miaomenu:item/menu/spring_sakura}</li>
+     *   <li>{@code miaomenu:item/menu/spring_sakura} → 原样保留（已写全路径）</li>
      * </ul>
      */
     static @org.jspecify.annotations.Nullable String themeImageModelId(String key) {
         if (key == null || key.isBlank()) {
             return null;
         }
-        String namespace = "miaomenu";
+        String namespace = com.fluxcraft.MiaoMenu.theme.ThemeAssets.NAMESPACE;
         String path = key.trim();
         int colon = path.indexOf(':');
         if (colon > 0) {
@@ -388,8 +392,10 @@ public class ItemResolver {
         if (path.isBlank()) {
             return null;
         }
-        // 已经写了完整路径（如 menu/spring_sakura）就不要再加一层。
-        return path.indexOf('/') >= 0 ? namespace + ":" + path : namespace + ":menu/" + path;
+        // 已经写了完整路径（如 item/menu/spring_sakura）就不要再加前缀。
+        return path.indexOf('/') >= 0
+                ? namespace + ":" + path
+                : namespace + ":" + com.fluxcraft.MiaoMenu.theme.ThemeAssets.MODEL_PATH_PREFIX + path;
     }
 
     /** 资源包是否真的在给客户端发主题贴图。 */

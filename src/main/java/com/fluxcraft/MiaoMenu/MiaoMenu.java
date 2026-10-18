@@ -47,6 +47,7 @@ import com.fluxcraft.MiaoMenu.menu.requirement.RequirementService;
 import com.fluxcraft.MiaoMenu.proxy.ProxyManager;
 import com.fluxcraft.MiaoMenu.security.RateLimiter;
 import com.fluxcraft.MiaoMenu.storage.VariableStore;
+import com.fluxcraft.MiaoMenu.theme.ThemeAssets;
 import com.fluxcraft.MiaoMenu.theme.ThemePackExporter;
 import com.fluxcraft.MiaoMenu.theme.ThemeRepository;
 import com.fluxcraft.MiaoMenu.update.UpdateChecker;
@@ -305,6 +306,18 @@ public final class MiaoMenu extends JavaPlugin {
         if (themeRepository == null) {
             return;
         }
+        // 已安装的主题可能还是旧结构（贴图在 gui/sprites 下），先补齐标准物品模型，
+        // 这样升级插件后不用重新下载主题也能显示图片。
+        HandySchedulerUtil.runTaskAsynchronously(() -> {
+            try {
+                int generated = ThemeAssets.ensure(getDataFolder().toPath().resolve("themes"));
+                if (generated > 0) {
+                    getLogger().info("Prepared " + generated + " theme asset file(s) for item models.");
+                }
+            } catch (java.io.IOException e) {
+                getLogger().log(Level.WARNING, "Could not prepare theme assets", e);
+            }
+        });
         if (!getConfig().getBoolean("settings.theme-repository.prefetch", true)) {
             return;
         }

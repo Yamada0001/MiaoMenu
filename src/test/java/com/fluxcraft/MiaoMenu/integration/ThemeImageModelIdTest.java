@@ -14,26 +14,26 @@ import org.junit.jupiter.api.Test;
  */
 class ThemeImageModelIdTest {
     @Test
-    void shortFormGetsMenuSegment() {
-        assertEquals("miaomenu:menu/spring_sakura",
+    void shortFormGetsItemMenuPath() {
+        assertEquals("miaomenu:item/menu/spring_sakura",
                 ItemResolver.themeImageModelId("spring_sakura"));
     }
 
     @Test
-    void namespacedFormAlsoGetsMenuSegment() {
-        assertEquals("miaomenu:menu/winter_snow",
+    void namespacedFormAlsoGetsItemMenuPath() {
+        assertEquals("miaomenu:item/menu/winter_snow",
                 ItemResolver.themeImageModelId("miaomenu:winter_snow"));
     }
 
     @Test
     void explicitPathIsKeptAsIs() {
-        assertEquals("miaomenu:menu/summer_beach",
-                ItemResolver.themeImageModelId("miaomenu:menu/summer_beach"));
+        assertEquals("miaomenu:item/menu/summer_beach",
+                ItemResolver.themeImageModelId("miaomenu:item/menu/summer_beach"));
     }
 
     @Test
     void customNamespaceKeepsItsOwnNamespace() {
-        assertEquals("myserver:menu/logo",
+        assertEquals("myserver:item/menu/logo",
                 ItemResolver.themeImageModelId("myserver:logo"));
     }
 

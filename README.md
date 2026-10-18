@@ -517,6 +517,20 @@ settings:
 
 > 这里只复制纯资源文件，不生成各插件的物品定义——`image:` 依赖的是原版 `item_model` 机制，跨版本稳定，不需要为每个插件维护一套 schema。
 
+**关于贴图路径（重要）**
+
+Minecraft 的物品模型只能采样 `textures/item/` 与 `textures/block/` 下的贴图（见 [CraftEngine 文档](https://ce.gtemc.cn/zh-Hans/getting_start/add_custom_model)：不在图集范围内的纹理会渲染失败）。主题仓库把贴图放在 `textures/gui/sprites/menu/`，那是给 Dialog 按钮 sprite 图标用的自定义图集，物品模型取不到。
+
+因此插件会在安装/启动时自动补齐标准副本，主题仓库不需要改动：
+
+```
+themes/assets/miaomenu/textures/gui/sprites/menu/<id>.png   # 原图，Dialog 图标用
+themes/assets/miaomenu/textures/item/menu/<id>.png          # 自动生成，item_model 用
+themes/assets/miaomenu/models/item/menu/<id>.json           # 自动生成，指向上面那张
+```
+
+对应的模型 ID 是 `miaomenu:item/menu/<id>`；`image:spring_sakura` 会自动解析到它。
+
 **方式二：自己托管资源包**
 
 没有上述插件时，配置后玩家进服会自动收到，安装/更新主题后也会对在线玩家重发一次，无需重进服务器：
