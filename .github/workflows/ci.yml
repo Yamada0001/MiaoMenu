@@ -2,9 +2,10 @@ name: Java CI
 
 on:
   push:
-    branches: [main, master, dev]
+    branches: ['**']
   pull_request:
-    branches: [main, master]
+    branches: ['**']
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -23,6 +24,8 @@ jobs:
           distribution: temurin
           java-version: '25'
           cache: maven
+      - name: Compile
+        run: mvn -B -q compile
       - name: Build and Test
         run: mvn -B verify
       - name: Upload Artifact
@@ -30,4 +33,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MiaoMenu-${{ github.sha }}
-          path: target/*.jar
+          # 排除 shade 之前的原始 jar，避免用户误用未重定位的产物
+          path: |
+            target/*.jar
+            !target/original-*.jar

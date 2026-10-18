@@ -20,6 +20,7 @@ public class ItemResolver {
 
     private final MiaoMenu plugin;
     private final Material fallbackMaterial;
+    private final java.util.Set<String> warnedProblems = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private volatile Boolean craftEngineAvailable;
     private volatile Boolean itemsAdderAvailable;
     private volatile Boolean mmoItemsAvailable;
@@ -44,7 +45,7 @@ public class ItemResolver {
             return new ItemStack(fallbackMaterial);
         }
 
-        String lower = materialString.toLowerCase();
+        String lower = materialString.toLowerCase(java.util.Locale.ROOT);
 
         if (lower.startsWith("craftengine:")) {
             ItemStack item = resolveCraftEngine(materialString.substring(12));
@@ -61,6 +62,10 @@ public class ItemResolver {
         } else if (lower.startsWith("base64head:")) {
             ItemStack item = resolveBase64Head(materialString.substring(11));
             if (item != null) return item;
+        } else if (lower.indexOf(':') > 0) {
+            // 带命名空间但不是已知前缀：明确告警，避免静默变成石头。
+            warnOnce("unknown-prefix:" + lower, "Unknown item prefix in '" + materialString
+                    + "'; falling back to " + fallbackMaterial + ".");
         }
 
         ItemStack vanillaItem = resolveVanilla(materialString);
@@ -83,8 +88,20 @@ public class ItemResolver {
 
     @NotNull
     private ItemStack resolveVanilla(String materialString) {
-        Material mat = Material.matchMaterial(materialString);
-        return new ItemStack(mat != null ? mat : fallbackMaterial);
+        try {
+            Material mat = Material.matchMaterial(materialString);
+            return new ItemStack(mat != null ? mat : fallbackMaterial);
+        } catch (RuntimeException e) {
+            warnOnce("vanilla:" + materialString, "Invalid material '" + materialString + "': " + e.getMessage());
+            return new ItemStack(fallbackMaterial);
+        }
+    }
+
+    /** 同一类问题只记录一次，避免每格物品刷屏。 */
+    private void warnOnce(String key, String message) {
+        if (warnedProblems.add(key)) {
+            plugin.getLogger().warning(message);
+        }
     }
 
     private ItemStack resolveCraftEngine(String id) {
@@ -93,22 +110,82 @@ public class ItemResolver {
         }
         try {
             initCraftEngineClasses();
-            Object key = ceKeyClass.getMethod("of", String.class).invoke(null, id);
+            if (ceKeyClass == null || ceItemsClass == null) {
+                return null;
+            }
+            Object key = buildCraftEngineKey(id);
+            if (key == null) {
+                return null;
+            }
             Object customItem = invokeById(ceItemsClass, ceKeyClass, key);
             if (customItem != null) {
-                return (ItemStack) customItem.getClass().getMethod("buildItemStack").invoke(customItem);
+                ItemStack built = buildCraftEngineItem(customItem);
+                if (built != null) {
+                    return built.clone();
+                }
             }
-        } catch (Exception e) {
-            plugin.getLogger().fine("CraftEngine item not found: " + id);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            warnOnce("craftengine-api", "CraftEngine integration failed; "
+                    + "craftengine: items will fall back to " + fallbackMaterial + ": " + e);
         }
         return null;
     }
 
-    private static void initCraftEngineClasses() throws ClassNotFoundException {
-        if (ceClassesInit) return;
-        ceClassesInit = true;
-        ceKeyClass = Class.forName("net.momirealms.craftengine.core.util.Key");
-        ceItemsClass = Class.forName("net.momirealms.craftengine.bukkit.api.CraftEngineItems");
+    /**
+     * 兼容 CraftEngine 的命名空间习惯：不带冒号的 ID 默认属于 {@code craftengine}。
+     */
+    private static Object buildCraftEngineKey(String id) throws ReflectiveOperationException {
+        if (id.indexOf(':') > 0) {
+            return ceKeyClass.getMethod("of", String.class).invoke(null, id);
+        }
+        for (String factory : new String[]{"ce", "withDefaultNamespace"}) {
+            try {
+                return ceKeyClass.getMethod(factory, String.class).invoke(null, id);
+            } catch (NoSuchMethodException ignored) {
+                // 该版本没有这个工厂方法，继续尝试下一个。
+            }
+        }
+        return ceKeyClass.getMethod("of", String.class).invoke(null, id);
+    }
+
+    /**
+     * CraftEngine 26.x 把 {@code buildItemStack()} 改名为 {@code buildBukkitItem()}，
+     * 这里按顺序探测，避免版本升级后整类物品静默失效。
+     */
+    private static ItemStack buildCraftEngineItem(Object customItem) {
+        for (String methodName : new String[]{"buildItemStack", "buildBukkitItem"}) {
+            try {
+                Object result = customItem.getClass().getMethod(methodName).invoke(customItem);
+                if (result instanceof ItemStack stack) {
+                    return stack;
+                }
+            } catch (NoSuchMethodException ignored) {
+                // 换下一个候选方法名。
+            } catch (ReflectiveOperationException e) {
+                return null;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 只有全部类都加载成功后才置位，失败时回滚标志以便下次重试。
+     */
+    private static synchronized void initCraftEngineClasses() {
+        if (ceClassesInit) {
+            return;
+        }
+        try {
+            Class<?> keyClass = Class.forName("net.momirealms.craftengine.core.util.Key");
+            Class<?> itemsClass = Class.forName("net.momirealms.craftengine.bukkit.api.CraftEngineItems");
+            ceKeyClass = keyClass;
+            ceItemsClass = itemsClass;
+            ceClassesInit = true;
+        } catch (ClassNotFoundException | LinkageError e) {
+            ceKeyClass = null;
+            ceItemsClass = null;
+            ceClassesInit = false;
+        }
     }
 
     private static Object invokeById(Class<?> itemsClass, Class<?> keyClass, Object key) throws ReflectiveOperationException {
@@ -126,10 +203,17 @@ public class ItemResolver {
             var customStack = iaCustomStackClass
                     .getMethod("getInstance", String.class).invoke(null, id);
             if (customStack != null) {
-                return (ItemStack) customStack.getClass().getMethod("getItemStack").invoke(customStack);
+                Object raw = customStack.getClass().getMethod("getItemStack").invoke(customStack);
+                if (raw instanceof ItemStack stack) {
+                    // 第三方可能返回内部模板实例，clone 后再交给菜单改写名称/lore。
+                    return stack.clone();
+                }
             }
-        } catch (Exception e) {
-            plugin.getLogger().fine("ItemsAdder item not found: " + id);
+        } catch (ClassNotFoundException e) {
+            warnOnce("itemsadder-api", "ItemsAdder API class not found; "
+                    + "itemsadder: items will fall back to " + fallbackMaterial + ".");
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            warnOnce("itemsadder-api", "ItemsAdder integration failed: " + e);
         }
         return null;
     }
@@ -138,18 +222,27 @@ public class ItemResolver {
         if (isPluginUnavailable("MMOItems", ref -> mmoItemsAvailable = ref)) {
             return null;
         }
+        String[] parts = id.split(":", 2);
+        if (parts.length != 2) {
+            warnOnce("mmoitems-format:" + id,
+                    "MMOItems reference '" + id + "' must be mmoitems:<type>:<id>.");
+            return null;
+        }
         try {
-            String[] parts = id.split(":", 2);
-            if (parts.length != 2) return null;
             var pluginObj = org.bukkit.Bukkit.getPluginManager().getPlugin("MMOItems");
             if (mmoItemsClass == null) {
                 mmoItemsClass = Class.forName("net.Indyuce.mmoitems.MMOItems");
             }
             var getItemMethod = mmoItemsClass.getMethod("getItem", String.class, String.class);
             Object itemStack = getItemMethod.invoke(pluginObj, parts[0], parts[1]);
-            return (ItemStack) itemStack;
-        } catch (Exception e) {
-            plugin.getLogger().fine("MMOItems item not found: " + id);
+            if (itemStack instanceof ItemStack stack) {
+                return stack.clone();
+            }
+        } catch (ClassNotFoundException e) {
+            warnOnce("mmoitems-api", "MMOItems API class not found; "
+                    + "mmoitems: items will fall back to " + fallbackMaterial + ".");
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            warnOnce("mmoitems-api", "MMOItems integration failed: " + e);
         }
         return null;
     }
@@ -164,9 +257,15 @@ public class ItemResolver {
             }
             var apiMethod = headDbMainClass.getMethod("getHead", String.class);
             var pluginObj = org.bukkit.Bukkit.getPluginManager().getPlugin("HeadDatabase");
-            return (ItemStack) apiMethod.invoke(pluginObj, id);
-        } catch (Exception e) {
-            plugin.getLogger().fine("HeadDatabase head not found: " + id);
+            Object head = apiMethod.invoke(pluginObj, id);
+            if (head instanceof ItemStack stack) {
+                return stack.clone();
+            }
+        } catch (ClassNotFoundException e) {
+            warnOnce("headdb-api", "HeadDatabase API class not found; "
+                    + "headdb: items will fall back to " + fallbackMaterial + ".");
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            warnOnce("headdb-api", "HeadDatabase integration failed: " + e);
         }
         return null;
     }
@@ -177,23 +276,19 @@ public class ItemResolver {
             if (skinTexture == null) {
                 return null;
             }
-            var urlClass = Class.forName("org.bukkit.profile.PlayerProfile");
-            var server = plugin.getServer();
-            var profile = server.createProfile(UUID.randomUUID());
-            var textures = profile.getTextures();
-            var url = skinTexture.toURL();
-            textures.setSkin(url);
+            org.bukkit.profile.PlayerProfile profile = plugin.getServer().createProfile(UUID.randomUUID());
+            org.bukkit.profile.PlayerTextures textures = profile.getTextures();
+            textures.setSkin(skinTexture.toURL());
             profile.setTextures(textures);
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
-            var meta = head.getItemMeta();
-            if (meta != null) {
-                var skullMetaClass = meta.getClass();
-                skullMetaClass.getMethod("setOwnerProfile", urlClass).invoke(meta, profile);
-                head.setItemMeta(meta);
+            if (head.getItemMeta() instanceof org.bukkit.inventory.meta.SkullMeta skullMeta) {
+                skullMeta.setOwnerProfile(profile);
+                head.setItemMeta(skullMeta);
             }
             return head;
-        } catch (Exception e) {
-            plugin.getLogger().fine("Failed to create base64 head: " + base64.substring(0, Math.min(20, base64.length())) + "...");
+        } catch (RuntimeException | java.net.MalformedURLException e) {
+            warnOnce("base64head:" + base64.substring(0, Math.min(24, base64.length())),
+                    "Failed to build a base64 head: " + e.getMessage());
         }
         return null;
     }

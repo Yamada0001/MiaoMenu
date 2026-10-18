@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import com.fluxcraft.MiaoMenu.MiaoMenu;
 import com.fluxcraft.MiaoMenu.dialogmenu.plus.DialogFZ;
 import com.fluxcraft.MiaoMenu.dialogmenu.plus.DialogFZ.GridStyle;
+import com.fluxcraft.MiaoMenu.dialogmenu.plus.DialogYaml;
 import com.fluxcraft.MiaoMenu.menu.requirement.RequirementService;
 
 class DialogMenuConfigTest {

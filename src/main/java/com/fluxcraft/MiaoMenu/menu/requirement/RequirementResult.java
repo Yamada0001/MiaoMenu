@@ -17,6 +17,10 @@ public record RequirementResult(boolean allowed, boolean locked, String denyMess
         return new RequirementResult(false, true, denyMessage, null);
     }
 
+    public static RequirementResult locked(String denyMessage, String fallbackMenu) {
+        return new RequirementResult(false, true, denyMessage, fallbackMenu);
+    }
+
     public record RequirementContext(
             String menuName,
             Map<String, RequirementBlock> blocks,

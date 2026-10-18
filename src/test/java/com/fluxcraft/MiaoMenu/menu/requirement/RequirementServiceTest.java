@@ -121,6 +121,7 @@ class RequirementServiceTest {
         when(playerScoreboard.getObjective("story")).thenReturn(objective);
         when(objective.getScore("Nina")).thenReturn(score);
         when(score.getScore()).thenReturn(15);
+        when(score.isScoreSet()).thenReturn(true);
 
         RequirementService service = new RequirementService(plugin);
         RequirementResult result = service.evaluate(player, "test", Map.of(), List.of(Map.of(
@@ -151,6 +152,7 @@ class RequirementServiceTest {
         when(playerScoreboard.getObjective("story")).thenReturn(objective);
         when(objective.getScore("Nina")).thenReturn(score);
         when(score.getScore()).thenReturn(30);
+        when(score.isScoreSet()).thenReturn(true);
 
         RequirementService service = new RequirementService(plugin);
         RequirementResult result = service.evaluate(player, "test", Map.of(), List.of(Map.of(
@@ -386,6 +388,7 @@ class RequirementServiceTest {
         when(playerScoreboard.getObjective("story_progress")).thenReturn(objective);
         when(objective.getScore("Nina")).thenReturn(score);
         when(score.getScore()).thenReturn(1);
+        when(score.isScoreSet()).thenReturn(true);
 
         RequirementService service = new RequirementService(plugin);
         RequirementResult result = service.evaluate(player, "test", Map.of(), List.of(Map.of(

@@ -1,67 +1,92 @@
 package com.fluxcraft.MiaoMenu.security;
 
 import java.time.Duration;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * 按玩家计数的滑动窗口限流器。
+ *
+ * <p>实现上为每个玩家保存窗口内的事件时间戳队列；窗口长度与配额都可配置。
+ * 使用 {@link System#nanoTime()} 作为时间源，避免系统时钟回拨导致窗口
+ * 永不重置。</p>
+ */
 public final class RateLimiter {
-    // 每隔这么多次访问触发一次过期窗口扫描，避免无界增长的同时不增加每次调用成本
     private static final int CLEANUP_INTERVAL = 256;
 
-    private final long windowMillis;
+    private final long windowNanos;
     private final int maxEvents;
-    private final Map<UUID, Window> windows = new ConcurrentHashMap<>();
+    private final Map<UUID, Deque<Long>> windows = new ConcurrentHashMap<>();
     private final AtomicInteger accessCount = new AtomicInteger();
 
     public RateLimiter(Duration window, int maxEvents) {
-        this.windowMillis = window.toMillis();
+        if (window == null || window.isNegative() || window.isZero()) {
+            throw new IllegalArgumentException("Rate limit window must be positive");
+        }
+        if (maxEvents <= 0) {
+            throw new IllegalArgumentException("Rate limit maxEvents must be positive");
+        }
+        this.windowNanos = window.toNanos();
         this.maxEvents = maxEvents;
     }
 
     public boolean allow(UUID uuid) {
-        long now = System.currentTimeMillis();
+        if (uuid == null) {
+            return false;
+        }
+        long now = System.nanoTime();
         maybeCleanup(now);
 
         AtomicBoolean allowed = new AtomicBoolean(false);
         windows.compute(uuid, (_, current) -> {
-            if (current == null || now - current.windowStart() >= windowMillis) {
-                allowed.set(true);
-                return new Window(now, 1);
+            Deque<Long> timestamps = current != null ? current : new ArrayDeque<>(maxEvents);
+            evictExpired(timestamps, now);
+            if (timestamps.size() >= maxEvents) {
+                return timestamps;
             }
-            if (current.count() >= maxEvents) {
-                return current;
-            }
+            timestamps.addLast(now);
             allowed.set(true);
-            return new Window(current.windowStart(), current.count() + 1);
+            return timestamps;
         });
         return allowed.get();
     }
 
-    // 移除指定玩家的限流窗口，供玩家离线事件调用
+    private void evictExpired(Deque<Long> timestamps, long now) {
+        while (!timestamps.isEmpty() && now - timestamps.peekFirst() >= windowNanos) {
+            timestamps.pollFirst();
+        }
+    }
+
     public void clear(UUID uuid) {
-        windows.remove(uuid);
+        if (uuid != null) {
+            windows.remove(uuid);
+        }
     }
 
     public void clearAll() {
         windows.clear();
     }
 
-    // 机会式回收：仅在固定访问间隔触发，删除所有已过期窗口。
-    // 使用 remove(key, value) 按值比对删除，避免误删并发更新后的新窗口。
+    /** 当前被跟踪的玩家数量（用于测试与诊断）。 */
+    public int trackedWindows() {
+        return windows.size();
+    }
+
     private void maybeCleanup(long now) {
         if (accessCount.incrementAndGet() % CLEANUP_INTERVAL != 0) {
             return;
         }
-        windows.forEach((uuid, window) -> {
-            if (now - window.windowStart() >= windowMillis) {
-                windows.remove(uuid, window);
-            }
-        });
-    }
-
-    private record Window(long windowStart, int count) {
+        // 通过 computeIfPresent 回收，保证与 allow() 对同一 key 的修改互斥。
+        for (UUID uuid : windows.keySet()) {
+            windows.computeIfPresent(uuid, (_, timestamps) -> {
+                evictExpired(timestamps, now);
+                return timestamps.isEmpty() ? null : timestamps;
+            });
+        }
     }
 }

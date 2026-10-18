@@ -34,6 +34,8 @@ public final class VariableStore {
     private final File storageFile;
     private final Map<String, String> globalVariables = new LinkedHashMap<>();
     private final Map<UUID, Map<String, String>> playerVariables = new LinkedHashMap<>();
+    /** 上次落盘失败时置位，供 flush() 重试。 */
+    private volatile boolean dirty;
 
     public VariableStore(MiaoMenu plugin) {
         this.plugin = plugin;
@@ -159,11 +161,18 @@ public final class VariableStore {
         section.getValues(false).forEach((key, value) -> {
             if (value != null && KEY_PATTERN.matcher(key).matches()) {
                 target.put(normalizeKey(key), String.valueOf(value));
+            } else if (value != null) {
+                plugin.getLogger().warning("Ignoring invalid variable key in storage.yml: '" + key + "'");
             }
         });
     }
 
-    private void save() {
+    /**
+     * 把当前状态写回磁盘。
+     *
+     * @return 是否成功；失败时保留脏标记，供 {@link #flush()} 重试
+     */
+    private boolean save() {
         try {
             Files.createDirectories(storageFile.toPath().getParent());
             YamlConfiguration configuration = new YamlConfiguration();
@@ -187,8 +196,14 @@ public final class VariableStore {
             } catch (AtomicMoveNotSupportedException e) {
                 Files.move(temporary, target, StandardCopyOption.REPLACE_EXISTING);
             }
+            dirty = false;
+            return true;
         } catch (IOException e) {
-            plugin.getLogger().severe("Could not save persistent menu variables: " + e.getMessage());
+            dirty = true;
+            plugin.getLogger().log(java.util.logging.Level.SEVERE,
+                    "Could not save persistent menu variables to " + storageFile.getName()
+                            + "; changes stay in memory and will be retried on the next flush.", e);
+            return false;
         }
     }
 

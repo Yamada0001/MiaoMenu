@@ -2,12 +2,22 @@ menu_title: "&6&l主菜单 &7| &f服务器名称"
 # 菜单行数 (必须填 1, 2, 3, 4, 5 或 6)
 # 1行 = 9个格子, 6行 = 54个格子 (满)
 rows: 6
+
 # 菜单级条件: 不满足时可提示并回退到其他菜单
 view_requirement:
   deny_message: "&c你当前还不能打开这个菜单。"
   requirements:
     - type: permission
       permission: dgeysermenu.use
+
+# 命名条件块: 可在多个物品间复用（items.<id>.conditions 里用 type: block 引用）
+requirement_blocks:
+  staff_only:
+    deny_message: "&c该内容仅管理员可见。"
+    requirements:
+      - type: permission
+        permission: dgeysermenu.admin
+
 items:
   # 这里的 "server_info" 是这个物品的ID，你可以随意修改，不要重复即可
   server_info:
@@ -26,17 +36,17 @@ items:
     lore: # 说明: 物品的描述文字 (也就是鼠标放上去看到的几行字)
       - "&7点击查看服务器信息"
       - ""
-      - "&f在线玩家: &a%server_online%&f/&a%server_max_players%" # 常用变量 (需要安装PlaceholderAPI插件)
+      # 下列占位符需要安装 PlaceholderAPI 与对应扩展，否则会原样显示
+      - "&f在线玩家: &a%server_online%&f/&a%server_max_players%"
       - "&f服务器版本: &a%server_version%"
       - ""
-      - "&e点击查看详细信息"
+      - "&e左键查看信息 / 右键关闭"
     left_click_commands: # 说明: 鼠标左键点击时执行的一系列动作 (按顺序执行)
-    # 此处可替换成right_click_commands  left是左键 right是右键
-      - "[message] &6=== 服务器信息 ===" # [message] = 发送一条聊天消息给点击的玩家
-      - "[player] list" # [player] = 让玩家自己执行后面的命令 (相当于玩家在聊天框输入)
-      - "[close]" # [close] = 点击后关闭菜单
-      # 可选项player(玩家执行) 、cmd（控制台执行）、message(发送消息)、close（关闭菜单）
-      #下面的均这么设置即可
+      - "[message] &6=== 服务器信息 ==="
+      - "[player] list"
+      - "[close]"
+    right_click_commands: # 右键动作
+      - "[close]"
 
   teleport_spawn:
     slot: 12
@@ -45,11 +55,12 @@ items:
     lore:
       - "&7点击传送至主城"
       - ""
-      - "&f立即传送至安全的主城"
-      - "&f区域，适合新手玩家"
+      - "&7需要服务器已安装提供 &f/spawn &7的插件"
+      - "&7（如 Essentials）"
     left_click_commands:
+      # 先提示，再执行；不要无条件发送"已传送"之类的假成功提示
+      - "[message] &7正在执行 &f/spawn&7……"
       - "[player] spawn"
-      - "[message] &a已传送至主城!"
 
   player_info:
     slot: 14
@@ -62,16 +73,16 @@ items:
       - "&f等级: &a%player_level%"
       - "&f世界: &b%player_world%"
       - "&f金钱: &6%vault_eco_balance%"
-
+      - ""
+      - "&7（本项仅管理员可点击，用于演示锁定状态）"
     # 物品条件: 条件不满足时，此按钮显示为锁定状态（灰色材质 + [未解锁]）
     # 支持旧语法 item_conditions (隐式AND) 和新语法 conditions (支持 AND/OR 嵌套)
     conditions:
       operator: AND
       requirements:
-        - type: placeholder_contains
-          placeholder: "%player_name%"
-          value: ""
-    lock_message: "&c尚未满足查看个人信息的条件。"
+        - type: permission
+          permission: dgeysermenu.admin
+    lock_message: "&c该示例仅管理员可查看，用于演示锁定状态。"
     left_click_commands:
       - "[message] &6=== 个人信息 ==="
       - "[message] &f昵称: &e%player_name%"
@@ -87,8 +98,9 @@ items:
     lore:
       - "&7打开服务器商店"
       - ""
-      - "&f购买和出售各种物品"
-      - "&f兑换稀有道具和装备"
+      - "&f解锁条件："
+      - "&f  完成成就 &aminecraft:story/root"
+      - "&f  且（拥有权限 &fvip.shop&f 或 记分板 &ftrade_count ≥ 5&f）"
       - ""
       - "&e点击打开商店"
     # 条件组合示例: 需要完成成就 且 (VIP权限 或 进度达标) 才能解锁
@@ -105,9 +117,25 @@ items:
             - type: progress
               objective: "trade_count"
               value: 5
-    lock_message: "&c需要完成初始故事进度才能使用商店"
+    lock_message: "&c需要完成成就 minecraft:story/root，并且拥有 vip.shop 权限或 trade_count ≥ 5。"
     left_click_commands:
       - "[player] shop"
+
+  # 命名条件块引用示例：仅管理员可见
+  admin_note:
+    slot: 34
+    material: WRITABLE_BOOK
+    display_name: "&c&l管理员提示"
+    lore:
+      - "&7该物品引用了 requirement_blocks.staff_only"
+    conditions:
+      operator: AND
+      requirements:
+        - type: block
+          block: staff_only
+    lock_message: "&c仅管理员可见。"
+    left_click_commands:
+      - "[message] &c这里是管理员专属内容。"
 
   close:
     slot: 49

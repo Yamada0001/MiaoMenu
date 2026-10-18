@@ -1,14 +1,15 @@
 menu:
   title: "§6§l主菜单" #标题
-  subtitle: "§7欢迎来到服务器!" #头顶(其实是不知道怎么解释)
-  footer: "§8服务器版本 1.21.x" #脚底(其实是不知道怎么解释)
+  # 基岩版表单不支持 § 颜色码，下发前会自动剥离，这里保留 § 只是为了与 Java 版配置保持一致
+  subtitle: "§7欢迎来到服务器!" #会显示在表单正文第一行
+  footer: "§8服务器版本 1.21.x" #会显示在表单正文最后一行
 
   items: #物品类开始
     - text: "§e§l服务器信息\n§7点击查看服务器状态" #显示的名称
       icon: "textures/items/book_enchanted" #图标路径（可以使用资源包创造专属的图标）
-      icon_type: "path" #可选项 PATH和URL 若URL icon项则填写图片直链 最佳32x32 64x64
-      command: "" #要执行的命令 注:可使用%player%代替玩家名
-      execute_as: "player" #可选项player(玩家执行) 、cmd（控制台执行）、message(发送消息)、close（关闭菜单）
+      icon_type: "path" #可选项 path 和 url；url 时 icon 填图片直链，建议 32x32 或 64x64
+      command: "list" #要执行的命令 注:可使用 %player% 代替玩家名
+      execute_as: "player" #可选项 player(玩家执行)、cmd（控制台执行）、message(发送消息)、close（关闭菜单）、menu（打开菜单）
       #后续都为同样的 请详细耐心为你的玩家打造一个特别的菜单吧！
 
     - text: "§a§l传送功能\n§7快速传送至各个地点"
@@ -22,14 +23,14 @@ menu:
       icon_type: "path"
       command: "profile"
       execute_as: "player"
-      # 条件不满足时按钮显示为锁定状态 (§8[未解锁] 前缀)
+      # 条件不满足时按钮显示为锁定状态（[未解锁] 前缀）
+      # 这里用管理员权限演示：普通玩家会看到锁定态
       conditions:
         operator: AND
         requirements:
-          - type: placeholder_contains
-            placeholder: "%player_name%"
-            value: ""
-      lock_message: "&c尚未满足查看个人信息的条件。"
+          - type: permission
+            permission: dgeysermenu.admin
+      lock_message: "&c该示例仅管理员可查看，用于演示锁定状态。"
 
     - text: "§2§l商店系统\n§7购买和出售物品"
       icon: "textures/items/emerald"
@@ -51,7 +52,7 @@ menu:
             advancement: "minecraft:story/root"
           - type: permission
             permission: "quest.access"
-      lock_message: "&c需要完成初始故事进度才能查看任务"
+      lock_message: "&c需要完成成就 minecraft:story/root，或拥有 quest.access 权限。"
 
     - text: "§c§l小游戏\n§7参与有趣的小游戏"
       icon: "textures/items/diamond_sword"
@@ -70,6 +71,20 @@ menu:
       icon_type: "path"
       command: "help"
       execute_as: "player"
+
+    # 控制台执行示例：命令里的 %player% 会被替换成点击者的名字
+    - text: "§6§l领取每日奖励\n§7每天可领取一次"
+      icon: "textures/items/gold_ingot"
+      icon_type: "path"
+      command: "give %player% minecraft:bread 3"
+      execute_as: "cmd"
+
+    # 打开另一个菜单：不带前缀时按玩家类型自动选择渲染方式
+    - text: "§f§l打开 Java 版菜单\n§7测试跨渲染方式跳转"
+      icon: "textures/items/chest"
+      icon_type: "path"
+      command: "test"
+      execute_as: "menu"
 
 view_requirement:
   deny_message: "&c你当前无法打开基岩主菜单。"

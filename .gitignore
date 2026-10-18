@@ -1,0 +1,11 @@
+# Maven 构建产物
+/target/
+
+# Qodana 静态分析报告：体积大，由本地/CI 生成，不入库
+qodana.sarif.json
+*.sarif.json
+
+# JVM 崩溃与日志
+hs_err_pid*
+replay_pid*
+*.log

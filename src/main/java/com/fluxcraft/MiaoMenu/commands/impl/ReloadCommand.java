@@ -6,6 +6,8 @@ import com.fluxcraft.MiaoMenu.utils.Lang;
 import org.bukkit.command.CommandSender;
 
 public class ReloadCommand implements PluginCommand {
+    private static final String PERMISSION = "dgeysermenu.reload";
+
     private final MiaoMenu plugin;
 
     public ReloadCommand(MiaoMenu plugin) {
@@ -14,16 +16,22 @@ public class ReloadCommand implements PluginCommand {
 
     @Override
     public void execute(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("dgeysermenu.reload")) {
+        if (!sender.hasPermission(PERMISSION)) {
             sender.sendMessage(Lang.get("message.no-permission"));
             return;
         }
-        plugin.getConfigManager().loadConfig();
-        Lang.reload();
-        plugin.getJavaMenuManager().loadAllMenus();
-        plugin.getBedrockMenuManager().loadAllMenus();
-        plugin.getProxyManager().reload();
-
+        // 与文件热重载共用同一条重载链路，避免两条路径行为漂移。
+        plugin.reloadAll();
         sender.sendMessage(Lang.get("message.reloaded"));
+    }
+
+    @Override
+    public boolean hasAccess(CommandSender sender) {
+        return sender.hasPermission(PERMISSION);
+    }
+
+    @Override
+    public String errorMessageKey() {
+        return "message.reload-failed";
     }
 }

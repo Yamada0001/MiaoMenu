@@ -5,7 +5,7 @@
 <p align="center">
   <img alt="Maven" src="https://img.shields.io/badge/Maven-C71A36?style=plastic&logo=apachemaven&logoColor=white">
   <img alt="Java CI" src="https://github.com/Yamada0001/MiaoMenu/actions/workflows/ci.yml/badge.svg?branch=26.2&logo=apachemaven&logoColor=white">
-  <img alt="Java 21" src="https://img.shields.io/badge/Java-21-FF5CAD?style=plastic&logo=openjdk&logoColor=111111&labelColor=FFFFFF">
+  <img alt="Java 25" src="https://img.shields.io/badge/Java-25-FF5CAD?style=plastic&logo=openjdk&logoColor=111111&labelColor=FFFFFF">
   <img alt="Bukkit 26.2" src="https://img.shields.io/badge/Bukkit-26.2-FF8A00?style=plastic&logo=minecraft&logoColor=111111&labelColor=FFD43B">
   <img alt="Paper 26.2" src="https://img.shields.io/badge/Paper-26.2-00A3FF?style=plastic&logo=minecraft&logoColor=white&labelColor=A855F7">
   <img alt="Folia 26.2" src="https://img.shields.io/badge/Folia-26.2-FF8A00?style=plastic&logo=minecraft&logoColor=white&labelColor=22C55E">
@@ -40,7 +40,7 @@
 - **需求条件系统**：支持权限、占位符、进度、记分板、成就等多维度条件判断
 - **多物品插件兼容**：CraftEngine、ItemsAdder、MMOItems、HeadDatabase、Base64 头颅
 - **PlaceholderAPI 集成**：全菜单文本支持占位符解析
-- **代理跨服**：BungeeCord / Velocity 自动检测与跨服切换
+- **代理跨服**：BungeeCord / Velocity 跨服切换（按 `settings.proxy-mode` 显式配置）
 - **安全加固**：速率限制器 + 输入验证器 + 命令安全开关
 - **菜单时钟**：专属时钟物品，右键打开默认菜单
 - **多语言系统**：内置 5 种语言（简体中文 / 繁體中文 / English / Tiếng Việt / 日本語），支持自定义扩展
@@ -123,6 +123,8 @@ menu:
 ### config.yml 核心配置
 
 ```yaml
+config-version: 26                # 配置版本，用于自动迁移（勿手动改小）
+menu-version: 7                   # 示例菜单版本
 settings:
   lang: "en-us"                   # 语言选择（en-us / zh-cn / zh-tw / vi-vn / ja-jp）
   default-menu: test              # 默认菜单名称（右键时钟打开）
@@ -131,14 +133,24 @@ settings:
     sound: entity.experience_orb.pickup
     volume: 1.0
     pitch: 1.0
+  hot-reload:
+    enabled: true                 # 文件变更后自动重载（含 lang/ 目录）
+  auto-generate-examples: true    # 缺失时释放示例菜单与示例配置
   item-resolver:
     fallback-material: STONE      # 物品解析失败时的回退材质
-  validate-commands: false        # 命令安全验证开关（默认关闭）
+  validate-commands: false        # 命令安全验证开关（仅作用于 [cmd]/[player]）
   proxy-mode: NONE                # NONE / BUNGEE / VELOCITY
+  rate-limit:
+    window-millis: 2000           # 交互限流窗口长度
+    max-events: 10                # 窗口内允许的点击次数
   menu-clock:
     enabled: true                 # 菜单时钟开关
     give-on-join: true            # 入服自动给时钟
 ```
+
+> **配置迁移**：当 `config-version` 与插件内置版本不一致时，插件会先备份现有
+> `config.yml`（生成 `config.yml.<时间戳>.bak`），然后**只补齐缺失的键**，
+> 不会覆盖你已经改过的值。
 
 ### 多语言系统 (i18n)
 
@@ -166,9 +178,12 @@ settings:
 #### 自定义与扩展
 
 - **修改文本**：直接编辑 `lang/` 目录下对应的 `.yml` 文件，保存后热重载自动生效
-- **新增语言**：复制任意语言文件并重命名（如 `ko-kr.yml`），将 `config.yml` 中 `lang` 设为 `ko-kr` 即可
+- **新增语言**：复制任意语言文件并重命名（如 `ko-kr.yml`），再把文件名（不含 `.yml`）加入
+  插件支持列表后即可使用——当前内置列表为 `en-us` / `zh-cn` / `zh-tw` / `vi-vn` / `ja-jp`，
+  其它值会告警并回退到 `en-us`
 - **颜色代码**：所有文本支持 `&` 颜色格式（`&c` 红色、`&a` 绿色、`&6` 金色等）
-- **缺失回退**：当某条 key 在当前语言文件中不存在时，自动回退至内置英文 `en-us`，再回退至 key 本身
+- **缺失回退**：当某条 key 在当前语言文件中不存在时，自动回退至内置英文 `en-us`；
+  仍然缺失时会在控制台输出一条 `Missing language key` 告警，并把键名原样显示给玩家
 - **参数占位符**：`{0}`、`{1}` 等为程序运行时替换的动态参数，翻译时必须原样保留
 
 ---
@@ -204,11 +219,25 @@ dgeysermenu.*          (所有权限)
 | 前缀 | 说明 | 示例 |
 |------|------|------|
 | `[player]` | 以玩家身份执行 | `[player] spawn` |
-| `[cmd]` | 以控制台身份执行 | `[cmd] give @s diamond 1` |
+| `[cmd]` | 以控制台身份执行 | `[cmd] give %player% diamond 1` |
 | `[message]` | 发送消息给玩家 | `[message] &a你好！` |
 | `[close]` | 关闭菜单 | `[close]` |
 | `[menu]` | 打开另一个菜单 | `[menu] settings` |
+| `[var_set]` | 写入变量 | `[var_set] player:visits 1` |
+| `[var_add]` | 变量数值累加 | `[var_add] player:visits 1` |
+| `[var_remove]` | 删除变量 | `[var_remove] player:visits` |
 | 无前缀 | 等同 `[player]` | `spawn` |
+
+说明：
+
+- **`[cmd]` 的控制台权限**：任何能点击该按钮的玩家都会获得该命令的完整控制台权限，
+  不要把玩家可控占位符（如 `%some_nickname%`）拼进 `[cmd]` 命令。
+- **Folia 时序**：Folia 上 `[cmd]` 会投递到全局区域线程执行，比同一动作链中的其它动作
+  延后约一个 tick；如果后续动作依赖命令的结果，请拆到下一次点击。
+- **前缀写错不会静默执行**：出现未注册的前缀（如 `[console]`）时，插件会输出一条
+  `Unknown action prefix` 告警并跳过该动作，而不是降级成玩家命令。
+- **变量作用域**：`player:<key>` 表示当前玩家变量，`global:<key>` 表示全局变量；
+  变量可在文本中用 `%miao_player_<key>%` / `%miao_global_<key>%` 显示（需 PlaceholderAPI）。
 
 ---
 
@@ -219,15 +248,28 @@ dgeysermenu.*          (所有权限)
 | 类型 | 说明 | 示例 |
 |------|------|------|
 | `permission` | 权限检查 | `type: permission`, `permission: vip.use` |
-| `placeholder_equals` | 占位符等于 | `type: placeholder_equals`, `placeholder: "%server_online%"`, `value: "1"` |
-| `placeholder_not_equals` | 占位符不等于 | `type: placeholder-not-equals`, `placeholder: "%server_online%"`, `value: "0"` |
-| `placeholder_contains` | 占位符包含 | `type: placeholder_contains`, `placeholder: "%player_world%"`, `value: "world"` |
-| `advancement` | 成就完成 | `type: advancement`, `advancement: minecraft:story/mine_diamond` |
-| `progress` | 进度百分比 | `type: progress`, `objective: playtime`, `value: 50` |
+| `placeholder_equals` | 占位符等于（两侧去空白后比较） | `type: placeholder_equals`, `placeholder: "%server_online%"`, `value: "1"` |
+| `placeholder_not_equals` | 占位符不等于（也可写 `placeholder-not-equals`） | `type: placeholder_not_equals`, `placeholder: "%server_online%"`, `value: "0"` |
+| `placeholder_contains` | 占位符包含（`value` 不能为空） | `type: placeholder_contains`, `placeholder: "%player_world%"`, `value: "world"` |
+| `advancement` | 成就已完成 | `type: advancement`, `advancement: minecraft:story/mine_diamond` |
+| `progress` | 记分板分数达到阈值（不是百分比） | `type: progress`, `objective: playtime`, `value: 50` |
 | `score_gte` | 记分板大于等于 | `type: score_gte`, `objective: kills`, `value: 100` |
 | `score_lte` | 记分板小于等于 | `type: score_lte`, `objective: deaths`, `value: 10` |
 | `score_equals` | 记分板等于 | `type: score_equals`, `objective: level`, `value: 50` |
-| `score_range` | 记分板范围 | `type: score_range`, `objective: level`, `min: 10`, `max: 99` |
+| `score_range` | 记分板范围（闭区间） | `type: score_range`, `objective: level`, `min: 10`, `max: 99` |
+| `block` | 引用命名条件块 | `type: block`, `block: vip_check` |
+
+失败语义（重要）：
+
+- **占位符未解析即视为不满足**：未安装 PlaceholderAPI、expansion 缺失或占位符拼错时，
+  条件一律判定为失败，不会因为"字符串比较不相等"而误放行。
+- **从未设置过分数的玩家视为不满足**：`score_lte` / `score_range` 不会把"没有分数"
+  当成 0 分，避免新玩家意外通过上限类条件。
+- **配置写错一律 fail-closed**：条件组里只要有一条 requirement 非法（类型未知、缺必填参数、
+  引用了不存在的块），整组直接判定为不满足，并在控制台输出一次告警。
+- **空条件组**：`AND` 空组视为"无条件限制"（放行）；`OR` 空组没有任何可满足分支，判定为不满足。
+- **自定义提示**：每条 requirement 支持 `deny_message`（别名 `lock_message`）与 `fallback_menu`，
+  命名条件块也支持这两个键；物品级 `conditions` 与菜单级 `view_requirement` 都会使用它们。
 
 ### 条件组 (AND / OR)
 
@@ -285,16 +327,34 @@ MiaoMenu 支持多种自定义物品格式，按优先级依次尝试：
 
 `base64head:` 使用 Mojang textures 属性的 Base64 JSON，并只接受 `textures.minecraft.net` 的皮肤 URL；64 位纹理哈希仍作为兼容输入支持。
 
+解析失败时的行为：
+
+- **回退材质**：任何前缀解析失败（插件未安装、ID 拼错、Base64 非法）都会回退到
+  `settings.item-resolver.fallback-material`（默认 `STONE`），并在控制台**输出一次**告警，
+  不再静默失败。
+- **未知前缀**：写成 `item:xxx`、`custom:xxx` 这类未知前缀时同样告警并回退，
+  不会被当作原版材质悄悄吞掉。
+- **CraftEngine 版本差异**：`buildItemStack` / `buildBukkitItem` 两种方法名都会被尝试，
+  不带命名空间的 ID 会按 CraftEngine 默认命名空间解析。
+
 ---
 
 ## 热重载
 
-插件使用 `WatchService` 守护线程监听以下文件变更：
+插件使用 `WatchService` 守护线程监听以下目录/文件：
+
 - `config.yml`
 - `java_menus/*.yml`
 - `bedrock_menus/*.yml`
+- `dialog_menus/*.yml`
+- `lang/*.yml`
 
-文件变更后 500ms 防抖触发自动重载，无需手动执行命令。也可使用 `/dgm reload` 手动重载。
+变更后采用**尾随防抖**：只有最后一次改动之后静默 500ms 才会真正重载，避免读到写了一半的文件。
+`commands.yml` / `tasks.yml` / `storage.yml` 的变更不会触发菜单重载。也可使用 `/dgm reload`
+手动重载——手动重载与文件热重载走同一条链路，结果一致。
+
+重载是容错的：单个菜单文件解析失败时保留它此前加载的实例；目录整体为空或全部文件失败时
+保留现有注册表，不会把全服菜单清空。
 
 ---
 
@@ -384,7 +444,10 @@ MiaoMenu/
 │   ├── config.yml
 │   ├── lang/                      # 多语言文件（en-us, zh-cn, zh-tw, vi-vn, ja-jp）
 │   ├── java_menus/                # Java 版示例菜单
-│   └── bedrock_menus/             # 基岩版示例菜单
+│   ├── bedrock_menus/             # 基岩版示例菜单
+│   ├── dialog_menus/              # Dialog 菜单示例
+│   ├── commands.yml               # 自定义命令示例
+│   └── tasks.yml                  # 周期任务示例
 ├── src/test/java/                 # 单元测试
 ├── .github/workflows/ci.yml       # CI 流水线
 └── pom.xml                        # Maven 构建配置
@@ -410,11 +473,19 @@ mvn verify
 
 ```bash
 mvn test
-# 26 个单元测试覆盖：
-#   - RequirementServiceTest (15 个)
-#   - RateLimiterTest (5 个)
-#   - ProxyManagerTest (4 个)
-#   - InputValidatorTest (2 个)
+# 53 个单元测试，12 个测试类：
+#   - RequirementServiceTest (18)   条件引擎：AND/OR、嵌套、fail-closed、数值边界
+#   - RateLimiterTest (5)           滑动窗口与清理
+#   - ProxyManagerTest (5)          代理模式解析与消息格式
+#   - DialogMenuConfigTest (6)      Dialog 配置解析与校验
+#   - MenuTextParserTest (5)        文本/字形解析
+#   - ItemResolverTest (3)          纹理 URL 白名单
+#   - VariableStoreTest (2)         变量读写与占位符
+#   - InputValidatorTest (2)        菜单名与命令内容校验
+#   - BedrockMenuConfigTest (2)     基岩菜单样例
+#   - ConfigManagerExampleTest (2)  示例释放策略
+#   - JavaMenuModeTest (2)          渲染模式枚举
+#   - CustomCommandManagerTest (1)  自定义命令参数替换
 ```
 
 ---
@@ -479,6 +550,39 @@ mvn test
 ---
 
 ## 变更日志
+
+### v3.1
+
+修复全面审查中发现的问题：
+
+- **修复**：`dialogmenu` 子系统缺失类导致整个项目无法编译（补齐 `Button` / `Body` / `Input` /
+  `DialogFZ` / `DialogYaml` / `DialogInter` / `DialogDTLB`），并真正接入 `openSmartMenu`
+- **修复**：条件系统多处 fail-open——空 `OR` 组、无条件的命名条件块、未解析的占位符、
+  `placeholder_contains` 空 `value`、从未设置过的记分板分数都会被误判为"满足"
+- **修复**：条件失败时的 `deny_message` / `fallback_menu` 在物品级 `conditions` 路径被丢弃
+- **修复**：数值阈值溢出与小数静默截断（`intValue()` → 范围校验）
+- **修复**：锁定物品名称/lore 显示字面 `&7`/`&8`/`&c`
+- **修复**：基岩版表单标题与按钮未去色，玩家看到字面 `§6§l`
+- **修复**：基岩版 `[close]` 无效（改用 Floodgate `closeForm`）
+- **修复**：基岩版表单回调未切回玩家区域线程；未知 `execute_as` 静默降级
+- **修复**：`ItemResolver` / `BedrockMenu` 反射初始化"先置标志后赋值"，一次失败永久失效
+- **修复**：限流只覆盖 Java 背包点击，基岩表单回调与自定义命令完全无限流
+- **修复**：限流实现由固定窗口改为真正的滑动窗口，并改用 `nanoTime` 避免时钟回拨
+- **修复**：`validate-commands` 会误杀中文与 `[close]`（空内容）
+- **修复**：未知动作前缀静默降级为"以玩家身份执行命令"
+- **修复**：`var_set` / `var_add` / `var_remove` 未注册
+- **修复**：热重载防抖会丢弃尾随事件、监听范围过宽、`key.reset()` 异常后目录永久失联
+- **修复**：菜单注册表在文件损坏/目录清空时把全服菜单清空
+- **修复**：配置版本迁移会用默认配置整体覆盖用户设置（改为键级合并 + 备份）
+- **修复**：变量持久化未接线（`load()`/`flush()` 从未调用），落盘失败静默
+- **修复**：跨服失败无提示并回落成"未知命令"
+- **修复**：`/dgm reload` 与文件热重载行为不一致
+- **新增**：`[menu] java:<名>` / `bedrock:<名>` / `dialog:<名>` 前缀；不带前缀时自动回退
+- **新增**：`settings.rate-limit` 配置项
+- **新增**：`PlaceholderAPI` 扩展 `%miao_player_<key>%` / `%miao_global_<key>%`
+- **新增**：`commands.yml`、`tasks.yml`、`dialog_menus/test.yml` 首次启动自动释放
+- **改进**：默认中文文案改为可操作表述，五套语言文件补齐全部键
+- **改进**：`/dgm help` 按权限过滤，Tab 补全不再泄露无权限子命令与菜单名
 
 ### v3.0 (Paper 26.2)
 

@@ -16,12 +16,18 @@ import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import com.fluxcraft.MiaoMenu.api.MiaoMenuApi;
+import com.fluxcraft.MiaoMenu.api.MiaoMenuApiImpl;
 import com.fluxcraft.MiaoMenu.bedrockmenu.BedrockMenuManager;
 import com.fluxcraft.MiaoMenu.commands.CommandManager;
 import com.fluxcraft.MiaoMenu.commands.impl.GetMenuClockCommand;
 import com.fluxcraft.MiaoMenu.config.ConfigManager;
+import com.fluxcraft.MiaoMenu.dialogmenu.DialogMenuManager;
+import com.fluxcraft.MiaoMenu.dialogmenu.DynamicLR;
 import com.fluxcraft.MiaoMenu.foliacall.FoliaFactory;
 import com.fluxcraft.MiaoMenu.integration.ItemResolver;
+import com.fluxcraft.MiaoMenu.integration.PlaceholderHook;
+import com.fluxcraft.MiaoMenu.integration.text.MenuTextParser;
 import com.fluxcraft.MiaoMenu.javamenu.JavaMenuListener;
 import com.fluxcraft.MiaoMenu.javamenu.JavaMenuManager;
 import com.fluxcraft.MiaoMenu.listeners.ClockInteractionListener;
@@ -29,13 +35,18 @@ import com.fluxcraft.MiaoMenu.listeners.PlayerLifecycleListener;
 import com.fluxcraft.MiaoMenu.listeners.PlayerLifecycleListener_Folia;
 import com.fluxcraft.MiaoMenu.managers.HotReloadManager;
 import com.fluxcraft.MiaoMenu.managers.MenuClockManager;
+import com.fluxcraft.MiaoMenu.managers.PeriodicTaskManager;
 import com.fluxcraft.MiaoMenu.managers.SoundsClock;
+import com.fluxcraft.MiaoMenu.managers.CustomCommandManager;
 import com.fluxcraft.MiaoMenu.menu.action.ActionRegistry;
 import com.fluxcraft.MiaoMenu.menu.requirement.RequirementFeedbackHandler;
 import com.fluxcraft.MiaoMenu.menu.requirement.RequirementService;
 import com.fluxcraft.MiaoMenu.proxy.ProxyManager;
 import com.fluxcraft.MiaoMenu.security.RateLimiter;
+import com.fluxcraft.MiaoMenu.storage.VariableStore;
 import com.fluxcraft.MiaoMenu.utils.Lang;
+import com.fluxcraft.MiaoMenu.utils.MenuUtils;
+import com.fluxcraft.MiaoMenu.utils.PlaceholderUtils;
 
 import cn.handyplus.lib.adapter.HandySchedulerUtil;
 
@@ -48,6 +59,7 @@ public final class MiaoMenu extends JavaPlugin {
     private ConfigManager configManager;
     private JavaMenuManager javaMenuManager;
     private BedrockMenuManager bedrockMenuManager;
+    private DialogMenuManager dialogMenuManager;
     private ActionRegistry actionRegistry;
     private CommandManager commandManager;
     private HotReloadManager hotReloadManager;
@@ -55,11 +67,19 @@ public final class MiaoMenu extends JavaPlugin {
     private RequirementService requirementService;
     private RateLimiter interactionRateLimiter;
     private MenuClockManager menuClockManager;
+    private VariableStore variableStore;
+    private DynamicLR dynamicLR;
+    private MenuTextParser menuTextParser;
+    private CustomCommandManager customCommandManager;
+    private PeriodicTaskManager periodicTaskManager;
+    private Metrics metrics;
     private final ThreadLocal<Set<String>> menuOpenChain = ThreadLocal.withInitial(LinkedHashSet::new);
     private volatile Class<?> floodgateApiClass;
     private volatile Object floodgateApiInstance;
     private volatile Method floodgateIsPlayerMethod;
-    private volatile boolean floodgateAvailable;
+    private volatile boolean floodgateReflectionBroken;
+    /** Floodgate 插件是否存在（与"基岩菜单链路是否就绪"是两个独立概念）。 */
+    private volatile boolean floodgatePresent;
 
     @Override
     public void onEnable() {
@@ -68,6 +88,7 @@ public final class MiaoMenu extends JavaPlugin {
             initializeMenuSystems();
             registerListeners();
             registerCommands();
+            registerApi();
             initializeOptionalFeatures();
             getLogger().info(Lang.get("log.plugin.enabled").replace("{0}", getPluginMeta().getVersion()));
         } catch (RuntimeException e) {
@@ -87,19 +108,39 @@ public final class MiaoMenu extends JavaPlugin {
         if (proxyManager != null) {
             proxyManager.shutdown();
         }
+        if (customCommandManager != null) {
+            customCommandManager.shutdown();
+        }
+        if (periodicTaskManager != null) {
+            periodicTaskManager.shutdown();
+        }
+        if (variableStore != null) {
+            variableStore.flush();
+        }
+        if (metrics != null) {
+            metrics.shutdown();
+        }
     }
 
     private void initializeCoreServices() {
         saveDefaultConfig();
         Lang.init(this);
         HandySchedulerUtil.init(this);
-        floodgateAvailable = Bukkit.getPluginManager().isPluginEnabled("floodgate");
+        floodgatePresent = Bukkit.getPluginManager().isPluginEnabled("floodgate");
         configManager = new ConfigManager(this);
         configManager.loadConfig();
         Lang.reload();
         configManager.checkAndRefreshMenus();
         requirementService = new RequirementService(this);
-        interactionRateLimiter = new RateLimiter(java.time.Duration.ofSeconds(2), 10);
+        interactionRateLimiter = new RateLimiter(
+                java.time.Duration.ofMillis(configManager.getRateLimitWindowMillis()),
+                configManager.getRateLimitMaxEvents()
+        );
+        variableStore = new VariableStore(this);
+        variableStore.load();
+        menuTextParser = new MenuTextParser(this);
+        dynamicLR = new DynamicLR(this);
+        PlaceholderHook.register(this);
     }
 
     private void initializeMenuSystems() {
@@ -115,18 +156,72 @@ public final class MiaoMenu extends JavaPlugin {
                 soundsClock,
                 requirementService,
                 requirementFeedbackHandler,
-                floodgateAvailable
+                floodgatePresent
         );
-        boolean bedrockMenusEnabled = floodgateAvailable && bedrockMenuManager.isEnabled();
-        floodgateAvailable = bedrockMenusEnabled;
+        dialogMenuManager = new DialogMenuManager(
+                this,
+                itemResolver,
+                actionRegistry,
+                soundsClock,
+                requirementService,
+                requirementFeedbackHandler
+        );
         commandManager = new CommandManager(this);
         menuClockManager = new MenuClockManager(this, clockKey);
         hotReloadManager = new HotReloadManager(this);
         proxyManager = new ProxyManager(this);
         proxyManager.initialize();
-        javaMenuManager.loadAllMenus();
-        bedrockMenuManager.loadAllMenus();
+        customCommandManager = new CustomCommandManager(this, actionRegistry);
+        periodicTaskManager = new PeriodicTaskManager(this, actionRegistry, requirementService);
+        reloadAllMenus();
         registerClockListeners(menuClockManager);
+    }
+
+    /**
+     * 重新加载全部菜单与配置，供 {@code /dgm reload} 与文件热重载共用。
+     */
+    public void reloadAll() {
+        configManager.loadConfig();
+        Lang.reload();
+        PlaceholderUtils.reset();
+        configManager.checkAndRefreshMenus();
+        reloadAllMenus();
+        proxyManager.reload();
+    }
+
+    /**
+     * 只重新加载菜单注册表与依赖菜单的子系统。
+     */
+    public void reloadAllMenus() {
+        requirementService.resetReportedErrors();
+        if (javaMenuManager != null) {
+            javaMenuManager.loadAllMenus();
+        }
+        if (bedrockMenuManager != null) {
+            bedrockMenuManager.loadAllMenus();
+        }
+        if (dialogMenuManager != null) {
+            dialogMenuManager.loadAllMenus();
+        }
+        if (customCommandManager != null) {
+            customCommandManager.reload();
+        }
+        if (periodicTaskManager != null) {
+            periodicTaskManager.reload();
+        }
+    }
+
+    private void registerApi() {
+        try {
+            getServer().getServicesManager().register(
+                    MiaoMenuApi.class,
+                    new MiaoMenuApiImpl(this),
+                    this,
+                    org.bukkit.plugin.ServicePriority.Normal
+            );
+        } catch (RuntimeException e) {
+            getLogger().log(Level.WARNING, "Could not register the MiaoMenu API service", e);
+        }
     }
 
     private void registerListeners() {
@@ -174,25 +269,49 @@ public final class MiaoMenu extends JavaPlugin {
         }
     }
 
+    /**
+     * 打开菜单的统一入口。
+     *
+     * <p>菜单名支持 {@code java:} / {@code bedrock:} / {@code dialog:} 前缀来显式指定渲染方式；
+     * 不带前缀时按玩家类型选择首选渲染方式，并在未命中时回退到另一种可用形态。</p>
+     */
     public void openSmartMenu(Player player, String menuName) {
-        if (menuName == null) {
-            player.sendMessage(Lang.get("message.menu-not-found").replace("{0}", ""));
+        if (player == null) {
             return;
         }
+        if (menuName == null || menuName.isBlank()) {
+            player.sendMessage(Lang.get("message.menu-name-required"));
+            return;
+        }
+
+        String requested = menuName.trim();
+        String target = null;
+        String bare = requested;
+        int colon = requested.indexOf(':');
+        if (colon > 0) {
+            String prefix = requested.substring(0, colon).toLowerCase(Locale.ROOT);
+            if (prefix.equals("java") || prefix.equals("bedrock") || prefix.equals("dialog")) {
+                target = prefix;
+                bare = requested.substring(colon + 1).trim();
+            }
+        }
+        if (bare.isEmpty()) {
+            player.sendMessage(Lang.get("message.menu-name-required"));
+            return;
+        }
+
         Set<String> openingMenus = menuOpenChain.get();
-        String normalizedMenuName = menuName.toLowerCase(Locale.ROOT);
-        String openingMenuKey = player.getUniqueId() + ":" + normalizedMenuName;
+        String openingMenuKey = player.getUniqueId() + ":" + bare.toLowerCase(Locale.ROOT);
         if (!openingMenus.add(openingMenuKey)) {
-            getLogger().warning("Blocked recursive menu fallback for " + player.getName() + ": " + menuName);
+            getLogger().warning("Blocked recursive menu fallback for " + player.getName() + ": " + requested);
+            player.sendMessage(Lang.get("message.menu-recursion-blocked"));
             return;
         }
 
         try {
-            if (isBedrockPlayer(player)) {
-                bedrockMenuManager.openMenu(player, menuName);
-                return;
+            if (!dispatchMenu(player, target, bare)) {
+                MenuUtils.handleMenuNotFound(player, null, requested);
             }
-            javaMenuManager.openMenu(player, menuName);
         } finally {
             openingMenus.remove(openingMenuKey);
             if (openingMenus.isEmpty()) {
@@ -201,8 +320,63 @@ public final class MiaoMenu extends JavaPlugin {
         }
     }
 
+    /**
+     * @return 是否找到并尝试打开了菜单
+     */
+    private boolean dispatchMenu(Player player, String target, String menuName) {
+        if (target != null) {
+            return switch (target) {
+                case "java" -> openJavaMenu(player, menuName);
+                case "bedrock" -> openBedrockMenu(player, menuName);
+                case "dialog" -> openDialogMenu(player, menuName);
+                default -> false;
+            };
+        }
+        if (isBedrockPlayer(player)) {
+            if (openBedrockMenu(player, menuName)) {
+                return true;
+            }
+            // Geyser 能渲染原版容器，因此基岩玩家仍可使用 Java 菜单
+            return openJavaMenu(player, menuName);
+        }
+        if (openJavaMenu(player, menuName)) {
+            return true;
+        }
+        return openDialogMenu(player, menuName);
+    }
+
+    private boolean openJavaMenu(Player player, String menuName) {
+        if (javaMenuManager == null || !javaMenuManager.getMenus().containsKey(menuName)) {
+            return false;
+        }
+        javaMenuManager.openMenu(player, menuName);
+        return true;
+    }
+
+    private boolean openBedrockMenu(Player player, String menuName) {
+        if (bedrockMenuManager == null || !bedrockMenuManager.getMenus().containsKey(menuName)) {
+            return false;
+        }
+        bedrockMenuManager.openMenu(player, menuName);
+        return true;
+    }
+
+    private boolean openDialogMenu(Player player, String menuName) {
+        if (dialogMenuManager == null || !dialogMenuManager.containsMenu(menuName)) {
+            return false;
+        }
+        dialogMenuManager.openMenu(player, menuName);
+        return true;
+    }
+
+    /**
+     * 判断玩家是否为 Floodgate（基岩版）玩家。
+     *
+     * <p>该判定只依赖 Floodgate 插件本身是否存在，与基岩菜单链路是否搭建成功无关——
+     * 后者失败时仍然要能正确识别基岩玩家并给出提示。</p>
+     */
     private boolean isBedrockPlayer(Player player) {
-        if (!floodgateAvailable || bedrockMenuManager == null || !bedrockMenuManager.isEnabled()) {
+        if (!floodgatePresent || floodgateReflectionBroken) {
             return false;
         }
         try {
@@ -215,16 +389,27 @@ public final class MiaoMenu extends JavaPlugin {
             if (floodgateIsPlayerMethod == null) {
                 floodgateIsPlayerMethod = floodgateApiClass.getMethod("isFloodgatePlayer", UUID.class);
             }
-            return (Boolean) floodgateIsPlayerMethod.invoke(floodgateApiInstance, player.getUniqueId());
-        } catch (ReflectiveOperationException e) {
-            getLogger().log(Level.WARNING, Lang.get("log.floodgate.player-check-failed").replace("{0}", player.getName()), e);
+            Object result = floodgateIsPlayerMethod.invoke(floodgateApiInstance, player.getUniqueId());
+            return result instanceof Boolean value && value;
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            floodgateReflectionBroken = true;
+            getLogger().log(
+                    Level.WARNING,
+                    Lang.get("log.floodgate.player-check-failed").replace("{0}", player.getName()),
+                    e
+            );
             return false;
         }
     }
 
+    /** 基岩版菜单链路是否可用（Floodgate + Cumulus 反射桥都就绪）。 */
+    public boolean isBedrockMenuEnabled() {
+        return floodgatePresent && bedrockMenuManager != null && bedrockMenuManager.isEnabled();
+    }
+
     private void initializeBStats() {
         try {
-            Metrics metrics = new Metrics(this, BSTATS_ID);
+            metrics = new Metrics(this, BSTATS_ID);
             metrics.addCustomChart(new SimplePie("server_software", this::detectServerSoftware));
             metrics.addCustomChart(new SimplePie("minecraft_version", this::detectMinecraftVersion));
         } catch (RuntimeException e) {
@@ -233,8 +418,11 @@ public final class MiaoMenu extends JavaPlugin {
     }
 
     private String detectServerSoftware() {
+        if (FoliaFactory.isFolia()) {
+            return "Folia";
+        }
         String version = Bukkit.getVersion();
-        return Stream.of("Paper", "Spigot", "Purpur", "Mint", "Leaves", "Leaf", "Luminol", "Folia")
+        return Stream.of("Paper", "Purpur", "Mint", "Leaves", "Leaf", "Luminol", "Spigot")
                 .filter(version::contains)
                 .findFirst()
                 .orElse("Other");
@@ -242,9 +430,12 @@ public final class MiaoMenu extends JavaPlugin {
 
     private String detectMinecraftVersion() {
         String version = Bukkit.getBukkitVersion().split("-")[0];
-        int maxLength = Math.min(4, version.length());
-        return version.substring(0, maxLength);
+        java.util.regex.Matcher matcher = MINECRAFT_VERSION.matcher(version);
+        return matcher.find() ? matcher.group() : version;
     }
+
+    private static final java.util.regex.Pattern MINECRAFT_VERSION =
+            java.util.regex.Pattern.compile("\\d+\\.\\d+(\\.\\d+)?");
 
     public ConfigManager getConfigManager() {
         return configManager;
@@ -272,5 +463,41 @@ public final class MiaoMenu extends JavaPlugin {
 
     public MenuClockManager getMenuClockManager() {
         return menuClockManager;
+    }
+
+    public DialogMenuManager getDialogMenuManager() {
+        return dialogMenuManager;
+    }
+
+    public ActionRegistry getActionRegistry() {
+        return actionRegistry;
+    }
+
+    public VariableStore getVariableStore() {
+        return variableStore;
+    }
+
+    public DynamicLR getDynamicLR() {
+        return dynamicLR;
+    }
+
+    public MenuTextParser getMenuTextParser() {
+        return menuTextParser;
+    }
+
+    public HotReloadManager getHotReloadManager() {
+        return hotReloadManager;
+    }
+
+    public CommandManager getCommandManager() {
+        return commandManager;
+    }
+
+    public CustomCommandManager getCustomCommandManager() {
+        return customCommandManager;
+    }
+
+    public PeriodicTaskManager getPeriodicTaskManager() {
+        return periodicTaskManager;
     }
 }

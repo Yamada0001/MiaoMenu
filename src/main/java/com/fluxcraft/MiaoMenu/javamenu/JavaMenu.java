@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -77,17 +78,28 @@ public class JavaMenu {
     private void loadItems(FileConfiguration config) {
         ConfigurationSection section = config.getConfigurationSection("items");
         if (section == null) {
+            plugin.getLogger().warning("Menu '" + name + "' has no 'items' section; the menu will render empty.");
             return;
         }
         for (String key : section.getKeys(false)) {
             String path = "items." + key;
+            int slot = config.getInt(path + ".slot", -1);
+            if (slot < 0 || slot >= size) {
+                plugin.getLogger().warning("Menu '" + name + "' item '" + key + "' has an invalid slot " + slot
+                        + " (menu size is " + size + "); the item was skipped.");
+                continue;
+            }
+            if (itemsBySlot.containsKey(slot)) {
+                plugin.getLogger().warning("Menu '" + name + "' reuses slot " + slot
+                        + " for item '" + key + "'; the later definition wins.");
+            }
             List<String> leftCmds = config.getStringList(path + ".left_click_commands");
             List<String> rightCmds = config.getStringList(path + ".right_click_commands");
             ConditionGroup conditionGroup = loadConditionGroup(config, path);
             requirementService.validateConditionGroup(name, path + ".conditions", requirementBlocks, conditionGroup);
             String lockMessage = config.getString(path + ".lock_message");
             MenuItem item = new MenuItem(
-                    config.getInt(path + ".slot", 0),
+                    slot,
                     config.getString(path + ".material", "STONE"),
                     config.getInt(path + ".custom_model_data", 0),
                     config.getString(path + ".display_name", "&fItem"),
@@ -129,20 +141,45 @@ public class JavaMenu {
 
     public void open(Player player) {
         String parsedTitleString = PlaceholderUtils.parse(player, title, plugin);
-        if (parsedTitleString.length() > Constants.Config.TITLE_MAX_LENGTH) {
-            parsedTitleString = parsedTitleString.substring(0, Constants.Config.TITLE_MAX_LENGTH);
-        }
-        Component titleComponent = LEGACY_SECTION.deserialize(parsedTitleString);
+        Component titleComponent = LEGACY_SECTION.deserialize(truncateTitle(parsedTitleString));
         MenuHolder holder = new MenuHolder(this);
         Inventory inventory = Bukkit.createInventory(holder, size, titleComponent);
         holder.setInventory(inventory);
-        items.forEach(item -> {
-            ItemStack stack = item.createItemStack(player, plugin, itemResolver, requirementService, name, requirementBlocks);
-            if (stack != null) {
-                inventory.setItem(item.getSlot(), stack);
+        for (MenuItem item : items) {
+            try {
+                ItemStack stack = item.createItemStack(player, plugin, itemResolver, requirementService, name, requirementBlocks);
+                if (stack != null) {
+                    inventory.setItem(item.getSlot(), stack);
+                }
+            } catch (RuntimeException | LinkageError e) {
+                // 单个物品渲染失败不应让整张菜单打不开。
+                plugin.getLogger().log(Level.WARNING,
+                        "Could not render slot " + item.getSlot() + " of menu '" + name + "'", e);
             }
-        });
+        }
         player.openInventory(inventory);
+    }
+
+    /**
+     * 按可见字符截断标题，避免把 {@code §} 色码从中间切断留下孤立段符。
+     */
+    private static String truncateTitle(String value) {
+        int max = Constants.Config.TITLE_MAX_LENGTH;
+        if (value == null || value.length() <= max) {
+            return value;
+        }
+        int end = 0;
+        int visible = 0;
+        while (end < value.length() && visible < max) {
+            char current = value.charAt(end);
+            if (current == '\u00a7' && end + 1 < value.length()) {
+                end += 2;
+                continue;
+            }
+            end++;
+            visible++;
+        }
+        return value.substring(0, end);
     }
 
     public RequirementResult checkViewRequirement(Player player) {
@@ -273,15 +310,16 @@ public class JavaMenu {
             ItemStack item = new ItemStack(LOCKED_MATERIAL);
             ItemMeta meta = item.getItemMeta();
             if (meta != null) {
-                String lockedName = "&7" + PlaceholderUtils.parse(player, name, plugin) + Lang.get("message.item-locked-suffix");
+                String lockedName = "\u00a77" + PlaceholderUtils.parse(player, name, plugin)
+                        + Lang.get("message.item-locked-suffix");
                 meta.displayName(LEGACY_SECTION.deserialize(lockedName));
                 List<Component> loreComponents = new ArrayList<>();
                 lore.forEach(line -> loreComponents.add(
-                        LEGACY_SECTION.deserialize("&8" + PlaceholderUtils.parse(player, line, plugin))
+                        LEGACY_SECTION.deserialize("\u00a78" + PlaceholderUtils.parse(player, line, plugin))
                 ));
                 loreComponents.add(Component.empty());
                 String lockLore = resolvedLockMessage != null ? resolvedLockMessage : Lang.get("message.item-locked");
-                loreComponents.add(LEGACY_SECTION.deserialize("&c" + lockLore));
+                loreComponents.add(LEGACY_SECTION.deserialize("\u00a7c" + lockLore));
                 meta.lore(loreComponents);
                 item.setItemMeta(meta);
             }

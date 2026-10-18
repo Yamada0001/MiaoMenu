@@ -1,9 +1,10 @@
-# Periodic task example. Enable it after adjusting the interval and actions.
+# 周期任务示例。调整好 interval 与 actions 后再把 enabled 改成 true。
+# delay / interval 的单位都是 tick（20 tick = 1 秒）。
 tasks:
   visit-reminder:
     enabled: false
-    delay: 200
-    interval: 1200
+    delay: 200       # 首次执行前的延迟
+    interval: 1200   # 之后每隔多久执行一次（1200 tick = 60 秒）
     permission: dgeysermenu.use
     conditions:
       operator: AND
@@ -11,4 +12,6 @@ tasks:
         - type: permission
           permission: dgeysermenu.use
     actions:
-      - "[message] &eYou have opened the example %miao_player_visits% times."
+      # %miao_player_<key>% 由插件自带的 PlaceholderAPI 扩展提供，
+      # 需要服务端安装 PlaceholderAPI 才会被替换。
+      - "[message] &e你好 %player_name%，你已打开示例菜单 %miao_player_visits% 次。"

@@ -8,6 +8,7 @@ import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
 import com.fluxcraft.MiaoMenu.MiaoMenu;
+import com.fluxcraft.MiaoMenu.dialogmenu.plus.Body;
 import com.fluxcraft.MiaoMenu.dialogmenu.plus.Button;
 import com.fluxcraft.MiaoMenu.dialogmenu.plus.Button.Icon;
 import com.fluxcraft.MiaoMenu.dialogmenu.plus.DialogFZ;
@@ -56,7 +57,7 @@ public final class DialogMenu {
         this.requirementService = requirementService;
         this.definition = definition;
         this.dynamicButtons = new DialogDTLB(plugin);
-        this.interaction = new DialogInter(plugin, actionRegistry, requirementService, definition);
+        this.interaction = new DialogInter(plugin, actionRegistry, definition);
     }
 
     public void open(Player player) {
@@ -75,11 +76,13 @@ public final class DialogMenu {
     }
 
     private Dialog buildDialog(Player player) {
-        List<Button> effectiveDefinitions = new ArrayList<>(definition.buttons());
+        List<Button> effectiveDefinitions = new ArrayList<>();
+        effectiveDefinitions.addAll(definition.buttons());
         effectiveDefinitions.addAll(dynamicButtons.expand(player, definition.dynamicLists()));
-        List<DialogBody> body = new ArrayList<>(definition.bodies().stream()
-                .map(entry -> entry.build(player, plugin, itemResolver))
-                .toList());
+        List<DialogBody> body = new ArrayList<>();
+        for (Body entry : definition.bodies()) {
+            body.add(entry.build(player, plugin, itemResolver));
+        }
         if (isItemOverlay()) {
             body.add(buildItemOverlay(player, effectiveDefinitions, definition.grid()));
         }
@@ -133,6 +136,11 @@ public final class DialogMenu {
             int slot;
             if (button.slot() != null) {
                 slot = button.slot();
+                if (slot < 0 || slot >= slots.length) {
+                    plugin.getLogger().warning("Dialog menu '" + definition.name() + "' declares slot " + slot
+                            + " outside the grid of " + slots.length + " cells; the button was skipped.");
+                    continue;
+                }
             } else {
                 while (nextSlot < slots.length && slots[nextSlot] != null) {
                     nextSlot++;
@@ -210,7 +218,7 @@ public final class DialogMenu {
     private Component overlaySprite(Player player, Button button, boolean locked) {
         Icon icon = button.icon();
         Component sprite = Component.object(ObjectContents.sprite(Key.key(icon.atlas()), Key.key(icon.sprite())));
-        ClickEvent click = interaction.createOverlayClick(player, button, locked);
+        ClickEvent<?> click = interaction.createOverlayClick(player, button, locked);
         if (click != null) {
             sprite = sprite.clickEvent(click);
         }
@@ -263,13 +271,19 @@ public final class DialogMenu {
             Grid grid
     ) {
         ActionButton filler = ActionButton.create(Component.empty(), null, grid.buttonWidth(), null);
-        List<ActionButton> buttons = new ArrayList<>(Collections.nCopies(grid.size(), filler));
+        List<ActionButton> buttons = new ArrayList<>();
+        buttons.addAll(Collections.nCopies(grid.size(), filler));
         boolean[] occupied = new boolean[grid.size()];
         int nextSlot = 0;
         for (Button button : definitions) {
             int slot;
             if (button.slot() != null) {
                 slot = button.slot();
+                if (slot < 0 || slot >= occupied.length) {
+                    plugin.getLogger().warning("Dialog menu '" + definition.name() + "' declares slot " + slot
+                            + " outside the grid of " + occupied.length + " cells; the button was skipped.");
+                    continue;
+                }
             } else {
                 while (nextSlot < occupied.length && occupied[nextSlot]) {
                     nextSlot++;
@@ -306,7 +320,8 @@ public final class DialogMenu {
         }
 
         String label = locked
-                ? firstNonBlank(button.lockedLabel(), "&7[Locked] " + button.label())
+                ? firstNonBlank(button.lockedLabel(),
+                        com.fluxcraft.MiaoMenu.utils.Lang.get("message.item-locked-suffix").trim() + " " + button.label())
                 : button.label();
         Component tooltip = button.tooltip() == null || button.tooltip().isBlank()
                 ? null

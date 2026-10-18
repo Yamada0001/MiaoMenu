@@ -9,32 +9,39 @@ import com.fluxcraft.MiaoMenu.utils.Lang;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
+import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 
 public class HelpCommand implements PluginCommand {
-    private final Map<String, String> commandDescriptions;
     private static final LegacyComponentSerializer LEGACY_SERIALIZER =
-            LegacyComponentSerializer.legacyAmpersand();
-    public HelpCommand(Map<String, String> commandDescriptions) {
+            LegacyComponentSerializer.legacySection();
+
+    private final Map<String, String> commandDescriptions;
+    private final Map<String, PluginCommand> commands;
+
+    public HelpCommand(Map<String, String> commandDescriptions, Map<String, PluginCommand> commands) {
         this.commandDescriptions = commandDescriptions;
+        this.commands = commands;
     }
 
     @Override
     public void execute(CommandSender sender, String[] args) {
-        String headerRaw = Lang.get("message.help.header");
-        Component header = LEGACY_SERIALIZER.deserialize(headerRaw);
-        sender.sendMessage(header);
+        sender.sendMessage(LEGACY_SERIALIZER.deserialize(Lang.get("message.help.header")));
+        String alias = Lang.get("command.main-alias");
         for (Map.Entry<String, String> entry : commandDescriptions.entrySet()) {
             String cmdName = entry.getKey();
-            String descRaw = entry.getValue();
+            PluginCommand command = commands.get(cmdName);
+            if (command != null && !command.hasAccess(sender)) {
+                continue;
+            }
+            Component descComponent = LEGACY_SERIALIZER.deserialize(entry.getValue());
             Component cmdComponent = Component.text(cmdName)
                     .color(NamedTextColor.YELLOW)
                     .decorate(TextDecoration.BOLD)
-                    .clickEvent(ClickEvent.suggestCommand("/" + Lang.get("command.main-alias") + " " + cmdName))
-                    .hoverEvent(Component.text(descRaw).asHoverEvent());
-            Component descComponent = LEGACY_SERIALIZER.deserialize(descRaw);
+                    .clickEvent(ClickEvent.suggestCommand("/" + alias + " " + cmdName))
+                    .hoverEvent(HoverEvent.showText(descComponent));
             sender.sendMessage(
                     Component.empty()
                             .append(Component.text(" ☛ ").color(NamedTextColor.DARK_GRAY))
@@ -43,9 +50,13 @@ public class HelpCommand implements PluginCommand {
                             .append(descComponent)
             );
         }
-        String usageRaw = Lang.get("message.help.usage");
-        Component usage = LEGACY_SERIALIZER.deserialize(usageRaw);
         sender.sendMessage(Component.empty());
-        sender.sendMessage(usage);
+        sender.sendMessage(LEGACY_SERIALIZER.deserialize(
+                Lang.get("message.help.usage").replace("{0}", alias)));
+    }
+
+    @Override
+    public boolean hasAccess(CommandSender sender) {
+        return sender.hasPermission("dgeysermenu.use");
     }
 }

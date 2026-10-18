@@ -78,11 +78,12 @@ buttons:
     width: 150
     actions:
       - "[menu] java:test"
+    # 用管理员权限演示锁定态（dgeysermenu.use 默认所有玩家都有，不会触发锁定）
     conditions:
       operator: AND
       requirements:
         - type: permission
-          permission: dgeysermenu.use
+          permission: dgeysermenu.admin
     lock_message: "&cYou cannot open the inventory menu."
     locked_label: "&7Inventory menu locked"
 
