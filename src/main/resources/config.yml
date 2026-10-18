@@ -1,6 +1,6 @@
 # 请勿随意更改版本号！！！！（插件依据它判断是否需要迁移配置）
-config-version: 26 #config.yml 的版本号检测
-menu-version: 7  #示例菜单的版本号检测
+config-version: 27 #config.yml 的版本号检测
+menu-version: 8  #示例菜单的版本号检测
 
 settings:
   lang: "zh-cn" # 文本语言 可选: en-us, zh-cn, zh-tw, vi-vn, ja-jp（对应 lang/ 目录下的文件）
@@ -34,6 +34,34 @@ settings:
   menu-clock:
     enabled: true # 是否启用整个钟表功能
     give-on-join: true # 会检测背包中是否已有钟表，避免重复发放。
+
+  # 更新检查：只查询 GitHub Release 并提示，不会自动下载或替换插件文件。
+  # 管理员可用 /dgm update（或 /mmy update）手动检查一次。
+  update-check:
+    enabled: true # 总开关；关闭后既不检查也不提示
+    repository: "Yamada0001/MiaoMenu" # owner/repo 形式
+    include-prerelease: false # true 时把预发布版本也视为可用更新
+    timeout-millis: 5000 # 单次 HTTP 请求超时（毫秒）
+    interval-hours: 0 # 定时复查间隔；0 表示只在启动时检查一次
+    notify-console: true # 发现新版本时写一条控制台日志
+    notify-on-join: true # 拥有 dgeysermenu.update 权限的玩家进服时提示一次
+
+  # 主题仓库：/dgm download <主题ID> 会从这里下载菜单与主题图片。
+  # 仓库需在根目录提供 themes.json 清单，格式见 README「主题仓库」。
+  theme-repository:
+    repository: "Yamada0001/MiaoMenu-theme" # owner/repo 形式
+    branch: "main" # 分支或标签名
+    timeout-millis: 8000 # 单个文件下载超时（毫秒）
+
+  # 资源包下发：主题图片（image: 前缀）需要客户端加载主题资源包才能显示。
+  # 未配置 url 时该功能自动跳过，菜单仍可正常使用（图片显示为纸张）。
+  resource-pack:
+    enabled: false # 总开关
+    url: "" # 资源包直链（http/https）
+    sha1: "" # 资源包 SHA-1（40 位十六进制），留空则不校验
+    force: false # true = 玩家必须接受才能进入服务器
+    prompt: "&d加载 MiaoMenu 主题资源包" # 提示文字，留空使用客户端默认文案
+    delay-ticks: 20 # 进服后延迟多少 tick 下发（20 = 1 秒）
 
 # 所有文本消息已移至 lang/ 目录下的语言文件（由 settings.lang 决定）
 # 支持 &R&G&B 颜色格式，编辑对应语言文件即可自定义文本

@@ -19,9 +19,11 @@ import org.jetbrains.annotations.Nullable;
 import org.jspecify.annotations.NonNull;
 
 import com.fluxcraft.MiaoMenu.MiaoMenu;
+import com.fluxcraft.MiaoMenu.commands.impl.DownloadCommand;
 import com.fluxcraft.MiaoMenu.commands.impl.HelpCommand;
 import com.fluxcraft.MiaoMenu.commands.impl.OpenCommand;
 import com.fluxcraft.MiaoMenu.commands.impl.ReloadCommand;
+import com.fluxcraft.MiaoMenu.commands.impl.UpdateCommand;
 import com.fluxcraft.MiaoMenu.utils.Lang;
 
 public class CommandManager implements CommandExecutor, TabCompleter {
@@ -39,6 +41,8 @@ public class CommandManager implements CommandExecutor, TabCompleter {
         Map<String, String> helpDescriptions = loadHelpDescriptions();
         register("open", new OpenCommand(plugin));
         register("reload", new ReloadCommand(plugin));
+        register("update", new UpdateCommand(plugin));
+        register("download", new DownloadCommand(plugin));
         register(CMD_HELP, new HelpCommand(helpDescriptions, commands));
     }
 

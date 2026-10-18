@@ -9,8 +9,9 @@ softdepend: [Floodgate, PlaceholderAPI, CraftEngine]
 commands:
   dgeysermenu:
     description: 主命令
-    usage: /<command> <open|reload|help>
-    aliases: [dgm, fluxmenu]
+    usage: /<command> <open|reload|update|download|help>
+    # mmy 只是别名，与主命令共用同一个 executor / tab 补全 / 权限检查
+    aliases: [dgm, fluxmenu, mmy]
   getmenuclock:
     description: 获取菜单钟表
     usage: /<command>
@@ -22,6 +23,8 @@ permissions:
       dgeysermenu.use: true
       dgeysermenu.admin: true
       dgeysermenu.reload: true
+      dgeysermenu.update: true
+      dgeysermenu.download: true
   dgeysermenu.use:
     description: 使用菜单命令
     default: true
@@ -30,4 +33,10 @@ permissions:
     default: op
   dgeysermenu.reload:
     description: 重载插件
+    default: op
+  dgeysermenu.update:
+    description: 检查插件更新并接收更新提示
+    default: op
+  dgeysermenu.download:
+    description: 下载并安装主题菜单
     default: op

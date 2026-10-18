@@ -118,11 +118,27 @@ public final class DialogMenu {
 
         return switch (definition.layoutType()) {
             case NOTICE -> buttons.isEmpty() ? DialogType.notice() : DialogType.notice(buttons.getFirst());
-            case CONFIRMATION -> DialogType.confirmation(buttons.get(0), buttons.get(1));
+            case CONFIRMATION -> buildConfirmation(buttons);
             case MULTI_ACTION -> buttons.isEmpty()
                     ? (exitButton == null ? DialogType.notice() : DialogType.notice(exitButton))
                     : DialogType.multiAction(buttons, exitButton, definition.columns());
         };
+    }
+
+    /**
+     * 确认框必须有且只有两个按钮。
+     *
+     * <p>配置期已经校验过数量，但按钮可能因为 {@code hide_when_locked} 在渲染期被隐藏，
+     * 这时降级成单按钮提示框，保证对话框仍然能打开而不是抛越界异常。</p>
+     */
+    private DialogType buildConfirmation(List<ActionButton> buttons) {
+        if (buttons.size() >= 2) {
+            return DialogType.confirmation(buttons.get(0), buttons.get(1));
+        }
+        plugin.getLogger().warning("Dialog menu '" + definition.name()
+                + "' uses layout confirmation but only " + buttons.size()
+                + " button(s) are visible for this player; falling back to a notice dialog.");
+        return buttons.isEmpty() ? DialogType.notice() : DialogType.notice(buttons.getFirst());
     }
 
     private boolean isItemOverlay() {

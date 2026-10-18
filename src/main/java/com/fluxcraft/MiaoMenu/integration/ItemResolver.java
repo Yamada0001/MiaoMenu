@@ -17,10 +17,16 @@ import com.google.gson.JsonParser;
 public class ItemResolver {
     private static final String TEXTURE_HOST = "textures.minecraft.net";
     private static final Pattern TEXTURE_HASH = Pattern.compile("[0-9a-fA-F]{64}");
+    /** 资源包物品模型 ID：{@code [命名空间:]路径}。 */
+    private static final Pattern IMAGE_ID = Pattern.compile("[a-z0-9_.-]+(:[a-z0-9_./-]+)?");
+    /** 头像 profile 的占位名字：只用于让 profile 完整，不参与渲染。 */
+    private static final String HEAD_PROFILE_NAME = "MiaoMenuHead";
 
     private final MiaoMenu plugin;
     private final Material fallbackMaterial;
     private final java.util.Set<String> warnedProblems = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    /** 纹理 hash → 已构建好的头颅模板，重复取值只做 clone。 */
+    private final java.util.Map<String, ItemStack> headCache = new java.util.concurrent.ConcurrentHashMap<>();
     private volatile Boolean craftEngineAvailable;
     private volatile Boolean itemsAdderAvailable;
     private volatile Boolean mmoItemsAvailable;
@@ -62,6 +68,8 @@ public class ItemResolver {
         } else if (lower.startsWith("base64head:")) {
             ItemStack item = resolveBase64Head(materialString.substring(11));
             if (item != null) return item;
+        } else if (lower.startsWith("image:")) {
+            return resolveThemeImage(materialString.substring(6), customModelData);
         } else if (lower.indexOf(':') > 0) {
             // 带命名空间但不是已知前缀：明确告警，避免静默变成石头。
             warnOnce("unknown-prefix:" + lower, "Unknown item prefix in '" + materialString
@@ -270,61 +278,162 @@ public class ItemResolver {
         return null;
     }
 
-    private ItemStack resolveBase64Head(String base64) {
-        try {
-            URI skinTexture = resolveSkinTextureUri(base64);
-            if (skinTexture == null) {
-                return null;
+    /**
+     * {@code image:<模型ID>}：引用随插件发布的四季主题图（或任意资源包物品模型）。
+     *
+     * <p>图片本体在 {@code themes/} 资源包里，键名形如
+     * {@code miaomenu:menu/spring_sakura}；这里只负责把物品指向对应的 item_model。
+     * 未安装资源包时物品会退化成普通纸张，菜单仍可正常使用。</p>
+     */
+    private ItemStack resolveThemeImage(String id, int customModelData) {
+        String key = id == null ? "" : id.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!IMAGE_ID.matcher(key).matches()) {
+            warnOnce("image-id:" + key,
+                    "Invalid image id '" + key + "'; expected something like image:spring_sakura.");
+            return new ItemStack(fallbackMaterial);
+        }
+        String namespaced = key.indexOf(':') > 0 ? key : "miaomenu:" + key;
+        org.bukkit.NamespacedKey modelKey = org.bukkit.NamespacedKey.fromString(namespaced);
+        ItemStack item = new ItemStack(Material.PAPER);
+        if (modelKey == null) {
+            warnOnce("image-key:" + key, "Invalid image model key '" + namespaced + "'.");
+            return item;
+        }
+        org.bukkit.inventory.meta.ItemMeta meta = item.getItemMeta();
+        if (meta != null) {
+            try {
+                meta.setItemModel(modelKey);
+                item.setItemMeta(meta);
+            } catch (RuntimeException | LinkageError e) {
+                // 旧服务端没有 item_model 组件时保持普通纸张，不影响菜单打开
+                warnOnce("image-model:" + key,
+                        "Server does not support item_model, '" + key + "' renders as plain paper: " + e);
             }
-            org.bukkit.profile.PlayerProfile profile = plugin.getServer().createProfile(UUID.randomUUID());
+        }
+        applyCustomModelData(item, customModelData);
+        return item;
+    }
+
+    private ItemStack resolveBase64Head(String base64) {
+        String textureHash = extractTextureHash(base64);
+        if (textureHash == null) {
+            warnOnce("base64head:" + preview(base64),
+                    "Ignoring an invalid base64 head payload; a plain player head is used instead.");
+            return new ItemStack(Material.PLAYER_HEAD);
+        }
+        return buildTexturedHead(textureHash);
+    }
+
+    /**
+     * 用固定的纹理 hash 构建头颅。
+     *
+     * <p>profile 的 UUID 由纹理 hash 派生，因此同一份 Base64 数据每次都会生成
+     * 完全相同的物品（物品相等性、堆叠与测试断言都依赖这一点）。
+     * 构建结果按 hash 缓存，避免每个格子重复构造 profile。</p>
+     */
+    private ItemStack buildTexturedHead(String textureHash) {
+        ItemStack cached = headCache.get(textureHash);
+        if (cached != null) {
+            return cached.clone();
+        }
+        try {
+            org.bukkit.profile.PlayerProfile profile = plugin.getServer().createProfileExact(
+                    headUuid(textureHash),
+                    HEAD_PROFILE_NAME
+            );
             org.bukkit.profile.PlayerTextures textures = profile.getTextures();
-            textures.setSkin(skinTexture.toURL());
+            textures.setSkin(textureUri(textureHash).toURL());
             profile.setTextures(textures);
             ItemStack head = new ItemStack(Material.PLAYER_HEAD);
             if (head.getItemMeta() instanceof org.bukkit.inventory.meta.SkullMeta skullMeta) {
                 skullMeta.setOwnerProfile(profile);
                 head.setItemMeta(skullMeta);
             }
-            return head;
-        } catch (RuntimeException | java.net.MalformedURLException e) {
-            warnOnce("base64head:" + base64.substring(0, Math.min(24, base64.length())),
-                    "Failed to build a base64 head: " + e.getMessage());
+            headCache.put(textureHash, head);
+            return head.clone();
+        } catch (RuntimeException | java.net.MalformedURLException | LinkageError e) {
+            // LinkageError：服务端缺少 profile API 或模块访问受限时也要降级，不能让菜单整页失败
+            warnOnce("base64head:" + textureHash,
+                    "Failed to build a base64 head, a plain player head is used instead: " + e);
+            return new ItemStack(Material.PLAYER_HEAD);
         }
-        return null;
+    }
+
+    /** 纹理 hash → 稳定的离线 UUID。 */
+    static UUID headUuid(String textureHash) {
+        return UUID.nameUUIDFromBytes(("MiaoMenuHead:" + normalizeHash(textureHash)).getBytes(StandardCharsets.UTF_8));
+    }
+
+    static URI textureUri(String textureHash) {
+        return URI.create("https://" + TEXTURE_HOST + "/texture/" + normalizeHash(textureHash));
+    }
+
+    /** 纹理 hash 统一小写，避免同一张皮肤因大小写产生两份缓存与两个 UUID。 */
+    private static String normalizeHash(String textureHash) {
+        return textureHash == null ? "" : textureHash.trim().toLowerCase(java.util.Locale.ROOT);
+    }
+
+    private static String preview(String base64) {
+        String value = base64 == null ? "" : base64.trim();
+        return value.substring(0, Math.min(24, value.length()));
     }
 
     static URI resolveSkinTextureUri(String encodedTexture) {
-        if (encodedTexture == null || encodedTexture.isBlank()) {
+        String textureHash = extractTextureHash(encodedTexture);
+        return textureHash == null ? null : textureUri(textureHash);
+    }
+
+    /**
+     * 从"纹理 hash"或 Mojang 的 Base64 皮肤数据里取出 64 位纹理 hash。
+     *
+     * <p>容错范围：允许直接写 hash、允许标准 / URL-safe 两种 Base64、允许缺少
+     * {@code =} 填充、允许数据中夹带换行或空格。任何无法识别的输入都返回
+     * {@code null}，由调用方决定降级方式。</p>
+     */
+    static @org.jetbrains.annotations.Nullable String extractTextureHash(String encodedTexture) {
+        if (encodedTexture == null) {
             return null;
         }
         String value = encodedTexture.trim();
+        if (value.isEmpty()) {
+            return null;
+        }
         if (TEXTURE_HASH.matcher(value).matches()) {
-            return URI.create("https://" + TEXTURE_HOST + "/texture/" + value);
+            return value.toLowerCase(java.util.Locale.ROOT);
+        }
+        byte[] decoded = decodeBase64(value);
+        if (decoded == null) {
+            return null;
         }
         try {
-            byte[] decoded = decodeBase64(value);
-            JsonObject root = new JsonParser().parse(new String(decoded, StandardCharsets.UTF_8)).getAsJsonObject();
+            String json = new String(decoded, StandardCharsets.UTF_8);
+            JsonObject root = new JsonParser().parse(json).getAsJsonObject();
             JsonObject textures = root.getAsJsonObject("textures");
             JsonObject skin = textures != null ? textures.getAsJsonObject("SKIN") : null;
             if (skin == null || !skin.has("url")) {
                 return null;
             }
-            return validateTextureUrl(skin.get("url").getAsString());
+            String url = skin.get("url").getAsString();
+            return textureHashFromUrl(url);
         } catch (RuntimeException e) {
+            // 非 JSON、结构不符或类型不符都按无效数据处理
             return null;
         }
     }
 
-    private static byte[] decodeBase64(String value) {
-        try {
-            return Base64.getDecoder().decode(value);
-        } catch (IllegalArgumentException ignored) {
-            return Base64.getUrlDecoder().decode(value);
+    /**
+     * 只接受 Mojang 官方纹理地址，且只保留 {@code /texture/<hash>} 部分。
+     */
+    private static @org.jetbrains.annotations.Nullable String textureHashFromUrl(String value) {
+        if (value == null || value.isBlank()) {
+            return null;
         }
-    }
-
-    private static URI validateTextureUrl(String value) {
-        URI source = URI.create(value);
+        URI source;
+        try {
+            source = URI.create(value.trim());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
         String scheme = source.getScheme();
         if ((scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https")))
                 || !TEXTURE_HOST.equalsIgnoreCase(source.getHost())
@@ -339,11 +448,34 @@ public class ItemResolver {
             return null;
         }
         String textureHash = path.substring("/texture/".length());
-        if (!TEXTURE_HASH.matcher(textureHash).matches()) {
+        return TEXTURE_HASH.matcher(textureHash).matches()
+                ? textureHash.toLowerCase(java.util.Locale.ROOT)
+                : null;
+    }
+
+    /**
+     * 兼容标准 / URL-safe、带或不带填充的 Base64；无法解码时返回 {@code null}。
+     */
+    private static byte @org.jetbrains.annotations.Nullable [] decodeBase64(String value) {
+        String compact = value.replaceAll("\\s+", "");
+        if (compact.isEmpty()) {
             return null;
         }
-        return URI.create("https://" + TEXTURE_HOST + "/texture/" + textureHash);
+        for (Base64.Decoder decoder : DECODERS) {
+            try {
+                return decoder.decode(compact);
+            } catch (IllegalArgumentException ignored) {
+                // 换下一种编码变体
+            }
+        }
+        return null;
     }
+
+    private static final java.util.List<Base64.Decoder> DECODERS = java.util.List.of(
+            Base64.getDecoder(),
+            Base64.getUrlDecoder(),
+            Base64.getMimeDecoder()
+    );
 
     @FunctionalInterface
     private interface AvailabilitySetter {

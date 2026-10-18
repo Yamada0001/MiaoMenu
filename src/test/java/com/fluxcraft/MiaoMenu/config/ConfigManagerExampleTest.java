@@ -32,6 +32,8 @@ class ConfigManagerExampleTest {
         verify(plugin).saveResource("java_menus/test.yml", false);
         verify(plugin).saveResource("bedrock_menus/test.yml", false);
         verify(plugin).saveResource("dialog_menus/test.yml", false);
+        verify(plugin).saveResource("java_menus/theme-spring.yml", false);
+        verify(plugin).saveResource("dialog_menus/theme-spring.yml", false);
         verify(plugin).saveResource("commands.yml", false);
         verify(plugin).saveResource("tasks.yml", false);
     }
@@ -53,7 +55,7 @@ class ConfigManagerExampleTest {
         when(plugin.getDataFolder()).thenReturn(temporaryDirectory.toFile());
         when(plugin.getConfig()).thenReturn(config);
         // 与 ConfigManager.MENU_VERSION 保持一致，走"仅补缺失示例"的分支
-        when(config.getInt("menu-version", 0)).thenReturn(7);
+        when(config.getInt("menu-version", 0)).thenReturn(8);
         when(config.getBoolean("settings.auto-generate-examples", true)).thenReturn(autoGenerate);
         return plugin;
     }

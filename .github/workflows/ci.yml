@@ -33,6 +33,14 @@ jobs:
         id: version
         run: echo "value=$(grep -m1 -oP '(?<=<version>)[^<]+' pom.xml)" >> "$GITHUB_OUTPUT"
 
+      # 把本次构建的真实版本号写进 jar，插件启动后用它与 GitHub Release 标签比较
+      - name: Stamp build info
+        run: |
+          printf 'version=%s-build.%s\ncommit=%s\n' \
+            "${{ steps.version.outputs.value }}" \
+            "${{ github.run_number }}" \
+            "${{ github.sha }}" > src/main/resources/build-info.properties
+
       - name: Compile
         run: mvn -B -q compile
 

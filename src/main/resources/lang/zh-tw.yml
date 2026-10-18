@@ -31,7 +31,37 @@ message:
 descriptions:
   open: "&a開啟指定的選單"
   reload: "&c重新載入設定與全部選單"
+  update: "&b檢查插件是否有新版本"
+  download: "&d下載並安裝主題選單"
   help: "&e顯示本說明頁面"
+
+theme:
+  listing: "&7正在取得主題列表……"
+  list-failed: "&c無法取得主題列表，請檢查網路或 settings.theme-repository 設定。"
+  empty: "&7遠端倉庫還沒有發佈任何主題。"
+  list-header: "&d可用主題 &7(&f{0}&7)"
+  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3}"
+  list-usage: "&7用法：&f/{0} download <主題ID> [--force]"
+  downloading: "&7正在下載主題 &e{0}&7……"
+  installed: "&a主題 &e{0}&a 已安裝，寫入 &e{1}&a 個檔案。"
+  skipped: "&e有 {0} 個檔案已存在，已略過（加 --force 可覆寫）。"
+  open-hint: "&7開啟選單：&f/{0} open {1}"
+  open-dialog-hint: "&7對話框選單：&f/{0} open dialog:{1}"
+  unknown: "&c主題 &e{0}&c 不存在，用 /{1} download 查看可用主題。"
+  failed: "&c主題 &e{0}&c 安裝失敗：&7{1}"
+  busy: "&7已有一次主題下載正在進行，請稍後再試。"
+  unavailable: "&c主題下載功能目前不可用。"
+  error: "&c主題下載執行失敗，詳細資訊請查看主控台日誌。"
+
+update:
+  checking: "&7正在檢查更新，請稍候……"
+  up-to-date: "&a目前已是最新版本 &e{0}&a。"
+  available: "&e發現新版本 &6{0}&e（目前 &7{1}&e）。下載：&b{2}"
+  no-releases: "&7遠端倉庫還沒有發佈任何版本。"
+  failed: "&c檢查更新失敗：&7{0}"
+  error: "&c更新檢查執行失敗，詳細資訊請查看主控台日誌。"
+  disabled: "&7更新檢查已在 config.yml 的 settings.update-check.enabled 中關閉。"
+  already-running: "&7已有一次更新檢查正在進行，請稍後再試。"
 
 command:
   unknown: "&c未知的子指令，輸入 /{0} help 查看指令列表。"

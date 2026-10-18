@@ -1,0 +1,10 @@
+{
+  "pack": {
+    "description": "MiaoMenu 四季主题菜单图片",
+    "pack_format": 46,
+    "supported_formats": {
+      "min_inclusive": 34,
+      "max_inclusive": 99
+    }
+  }
+}

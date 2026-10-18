@@ -22,6 +22,7 @@ public class PlayerLifecycleListener implements Listener {
     }
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
+        plugin.getResourcePackManager().sendOnJoin(event.getPlayer());
         if (clockManager.isEnabled() && plugin.getConfig().getBoolean("settings.menu-clock.give-on-join", true)) {
             Player player = event.getPlayer();
             FoliaFactory.getAdapter().runTaskLaterForEntity(plugin, player, () -> {

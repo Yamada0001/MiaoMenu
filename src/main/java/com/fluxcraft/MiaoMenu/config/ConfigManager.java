@@ -22,8 +22,8 @@ import com.fluxcraft.MiaoMenu.MiaoMenu;
 import com.fluxcraft.MiaoMenu.utils.Lang;
 
 public class ConfigManager {
-    private static final int CONFIG_VERSION = 26;
-    private static final int MENU_VERSION = 7;
+    private static final int CONFIG_VERSION = 27;
+    private static final int MENU_VERSION = 8;
     private static final String JAVA_MENUS_DIR = "java_menus";
     private static final String BEDROCK_MENUS_DIR = "bedrock_menus";
     private static final String DIALOG_MENUS_DIR = "dialog_menus";
@@ -175,6 +175,8 @@ public class ConfigManager {
         saveResourceIfNotExists("java_menus/test.yml");
         saveResourceIfNotExists("bedrock_menus/test.yml");
         saveResourceIfNotExists("dialog_menus/test.yml");
+        saveResourceIfNotExists("java_menus/theme-spring.yml");
+        saveResourceIfNotExists("dialog_menus/theme-spring.yml");
         saveResourceIfNotExists("commands.yml");
         saveResourceIfNotExists("tasks.yml");
     }

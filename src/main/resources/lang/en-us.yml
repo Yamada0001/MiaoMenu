@@ -30,7 +30,37 @@ message:
 descriptions:
   open: "&aOpen a specific menu"
   reload: "&cReload the configuration and all menus"
+  update: "&bCheck whether a newer plugin version exists"
+  download: "&dDownload and install a theme menu"
   help: "&eShow this help page"
+
+theme:
+  listing: "&7Fetching the theme list..."
+  list-failed: "&cCould not fetch the theme list. Check your network or settings.theme-repository."
+  empty: "&7The remote repository does not publish any theme yet."
+  list-header: "&dAvailable themes &7(&f{0}&7)"
+  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3}"
+  list-usage: "&7Usage: &f/{0} download <themeId> [--force]"
+  downloading: "&7Downloading theme &e{0}&7..."
+  installed: "&aTheme &e{0}&a installed, {1} file(s) written."
+  skipped: "&e{0} file(s) already existed and were skipped (use --force to overwrite)."
+  open-hint: "&7Open the menu: &f/{0} open {1}"
+  open-dialog-hint: "&7Dialog menu: &f/{0} open dialog:{1}"
+  unknown: "&cUnknown theme &e{0}&c. Run /{1} download to list available themes."
+  failed: "&cCould not install theme &e{0}&c: &7{1}"
+  busy: "&7A theme download is already running, please try again later."
+  unavailable: "&cTheme downloading is currently unavailable."
+  error: "&cThe theme download could not run. See the console log for details."
+
+update:
+  checking: "&7Checking for updates, please wait..."
+  up-to-date: "&aYou are running the latest version &e{0}&a."
+  available: "&eA new version &6{0}&e is available (current &7{1}&e). Download: &b{2}"
+  no-releases: "&7The remote repository has not published any release yet."
+  failed: "&cUpdate check failed: &7{0}"
+  error: "&cThe update check could not run. See the console log for details."
+  disabled: "&7Update checking is disabled in config.yml (settings.update-check.enabled)."
+  already-running: "&7An update check is already running, please try again later."
 
 command:
   unknown: "&cUnknown subcommand. Run /{0} help for the list of commands."

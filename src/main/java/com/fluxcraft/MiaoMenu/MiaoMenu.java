@@ -36,6 +36,7 @@ import com.fluxcraft.MiaoMenu.listeners.PlayerLifecycleListener_Folia;
 import com.fluxcraft.MiaoMenu.managers.HotReloadManager;
 import com.fluxcraft.MiaoMenu.managers.MenuClockManager;
 import com.fluxcraft.MiaoMenu.managers.PeriodicTaskManager;
+import com.fluxcraft.MiaoMenu.managers.ResourcePackManager;
 import com.fluxcraft.MiaoMenu.managers.SoundsClock;
 import com.fluxcraft.MiaoMenu.managers.CustomCommandManager;
 import com.fluxcraft.MiaoMenu.menu.action.ActionRegistry;
@@ -44,6 +45,9 @@ import com.fluxcraft.MiaoMenu.menu.requirement.RequirementService;
 import com.fluxcraft.MiaoMenu.proxy.ProxyManager;
 import com.fluxcraft.MiaoMenu.security.RateLimiter;
 import com.fluxcraft.MiaoMenu.storage.VariableStore;
+import com.fluxcraft.MiaoMenu.theme.ThemeRepository;
+import com.fluxcraft.MiaoMenu.update.UpdateChecker;
+import com.fluxcraft.MiaoMenu.update.UpdateNotifyListener;
 import com.fluxcraft.MiaoMenu.utils.Lang;
 import com.fluxcraft.MiaoMenu.utils.MenuUtils;
 import com.fluxcraft.MiaoMenu.utils.PlaceholderUtils;
@@ -72,6 +76,9 @@ public final class MiaoMenu extends JavaPlugin {
     private MenuTextParser menuTextParser;
     private CustomCommandManager customCommandManager;
     private PeriodicTaskManager periodicTaskManager;
+    private UpdateChecker updateChecker;
+    private ThemeRepository themeRepository;
+    private ResourcePackManager resourcePackManager;
     private Metrics metrics;
     private final ThreadLocal<Set<String>> menuOpenChain = ThreadLocal.withInitial(LinkedHashSet::new);
     private volatile Class<?> floodgateApiClass;
@@ -120,6 +127,9 @@ public final class MiaoMenu extends JavaPlugin {
         if (metrics != null) {
             metrics.shutdown();
         }
+        if (updateChecker != null) {
+            updateChecker.shutdown();
+        }
     }
 
     private void initializeCoreServices() {
@@ -140,6 +150,8 @@ public final class MiaoMenu extends JavaPlugin {
         variableStore.load();
         menuTextParser = new MenuTextParser(this);
         dynamicLR = new DynamicLR(this);
+        themeRepository = new ThemeRepository(this);
+        resourcePackManager = new ResourcePackManager(this);
         PlaceholderHook.register(this);
     }
 
@@ -148,8 +160,7 @@ public final class MiaoMenu extends JavaPlugin {
         RequirementFeedbackHandler requirementFeedbackHandler = new RequirementFeedbackHandler(this);
         ItemResolver itemResolver = new ItemResolver(this, configManager.getCraftEngineFallbackMaterial());
         SoundsClock soundsClock = new SoundsClock(this);
-        actionRegistry = new ActionRegistry(this);
-        javaMenuManager = new JavaMenuManager(this, itemResolver, soundsClock, requirementService, requirementFeedbackHandler);
+        actionRegistry = new ActionRegistry(this);        javaMenuManager = new JavaMenuManager(this, itemResolver, soundsClock, requirementService, requirementFeedbackHandler);
         bedrockMenuManager = new BedrockMenuManager(
                 this,
                 actionRegistry,
@@ -187,6 +198,9 @@ public final class MiaoMenu extends JavaPlugin {
         configManager.checkAndRefreshMenus();
         reloadAllMenus();
         proxyManager.reload();
+        if (updateChecker != null) {
+            updateChecker.reload();
+        }
     }
 
     /**
@@ -241,7 +255,17 @@ public final class MiaoMenu extends JavaPlugin {
         if (configManager.getConfig().getBoolean("settings.hot-reload.enabled", true)) {
             initializeHotReload();
         }
+        initializeUpdateChecker();
         initializeBStats();
+    }
+
+    /**
+     * 更新检查完全异步，失败只会留下一条日志，不影响插件启用。
+     */
+    private void initializeUpdateChecker() {
+        updateChecker = new UpdateChecker(this);
+        getServer().getPluginManager().registerEvents(new UpdateNotifyListener(updateChecker), this);
+        updateChecker.start();
     }
 
     private void initializeHotReload() {
@@ -499,5 +523,17 @@ public final class MiaoMenu extends JavaPlugin {
 
     public PeriodicTaskManager getPeriodicTaskManager() {
         return periodicTaskManager;
+    }
+
+    public UpdateChecker getUpdateChecker() {
+        return updateChecker;
+    }
+
+    public ThemeRepository getThemeRepository() {
+        return themeRepository;
+    }
+
+    public ResourcePackManager getResourcePackManager() {
+        return resourcePackManager;
     }
 }

@@ -1,6 +1,9 @@
 # Maven 构建产物
 /target/
 
+# CI 打包时写入的构建信息（本地构建不应带上它）
+src/main/resources/build-info.properties
+
 # Qodana 静态分析报告：体积大，由本地/CI 生成，不入库
 qodana.sarif.json
 *.sarif.json

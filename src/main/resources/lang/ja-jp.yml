@@ -31,7 +31,37 @@ message:
 descriptions:
   open: "&a指定したメニューを開く"
   reload: "&c設定とすべてのメニューを再読み込みする"
+  update: "&bプラグインの新しいバージョンを確認する"
+  download: "&dテーマメニューをダウンロードしてインストールする"
   help: "&eこのヘルプを表示する"
+
+theme:
+  listing: "&7テーマ一覧を取得しています……"
+  list-failed: "&cテーマ一覧を取得できませんでした。ネットワークまたは settings.theme-repository を確認してください。"
+  empty: "&7リモートリポジトリにはまだテーマがありません。"
+  list-header: "&d利用可能なテーマ &7(&f{0}&7)"
+  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3}"
+  list-usage: "&7使い方：&f/{0} download <テーマID> [--force]"
+  downloading: "&7テーマ &e{0}&7 をダウンロードしています……"
+  installed: "&aテーマ &e{0}&a をインストールしました（{1} ファイル）。"
+  skipped: "&e{0} ファイルは既に存在するためスキップしました（--force で上書き）。"
+  open-hint: "&7メニューを開く：&f/{0} open {1}"
+  open-dialog-hint: "&7ダイアログメニュー：&f/{0} open dialog:{1}"
+  unknown: "&cテーマ &e{0}&c は存在しません。/{1} download で一覧を確認してください。"
+  failed: "&cテーマ &e{0}&c のインストールに失敗しました：&7{1}"
+  busy: "&7テーマのダウンロードが実行中です。しばらくしてから再度お試しください。"
+  unavailable: "&cテーマのダウンロードは現在利用できません。"
+  error: "&cテーマのダウンロードを実行できませんでした。詳細はコンソールログを確認してください。"
+
+update:
+  checking: "&7アップデートを確認しています。しばらくお待ちください……"
+  up-to-date: "&a最新バージョン &e{0}&a を使用しています。"
+  available: "&e新しいバージョン &6{0}&e があります（現在 &7{1}&e）。ダウンロード：&b{2}"
+  no-releases: "&7リモートリポジトリにはまだリリースがありません。"
+  failed: "&cアップデートの確認に失敗しました：&7{0}"
+  error: "&cアップデート確認を実行できませんでした。詳細はコンソールログを確認してください。"
+  disabled: "&7アップデート確認は config.yml の settings.update-check.enabled で無効になっています。"
+  already-running: "&7アップデート確認はすでに実行中です。しばらくしてから再度お試しください。"
 
 command:
   unknown: "&c不明なサブコマンドです。/{0} help でコマンド一覧を確認してください。"

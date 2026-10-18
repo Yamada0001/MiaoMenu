@@ -136,6 +136,17 @@
             <resource>
                 <directory>src/main/resources</directory>
                 <filtering>true</filtering>
+                <!-- 二进制资源包不能参与文本过滤，否则 PNG 会被破坏 -->
+                <excludes>
+                    <exclude>themes/**</exclude>
+                </excludes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <includes>
+                    <include>themes/**</include>
+                </includes>
             </resource>
         </resources>
         <plugins>

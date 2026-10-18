@@ -31,7 +31,37 @@ message:
 descriptions:
   open: "&aMở một menu cụ thể"
   reload: "&cTải lại cấu hình và toàn bộ menu"
+  update: "&bKiểm tra xem có phiên bản plugin mới hơn không"
+  download: "&dTải và cài đặt menu theo chủ đề"
   help: "&eHiển thị trang trợ giúp này"
+
+theme:
+  listing: "&7Đang lấy danh sách chủ đề..."
+  list-failed: "&cKhông thể lấy danh sách chủ đề. Hãy kiểm tra mạng hoặc settings.theme-repository."
+  empty: "&7Kho lưu trữ từ xa chưa có chủ đề nào."
+  list-header: "&dChủ đề khả dụng &7(&f{0}&7)"
+  list-entry: " &8- &e{0} &7| &f{1} &8v{2} &7{3}"
+  list-usage: "&7Cách dùng: &f/{0} download <themeId> [--force]"
+  downloading: "&7Đang tải chủ đề &e{0}&7..."
+  installed: "&aĐã cài chủ đề &e{0}&a, ghi {1} tệp."
+  skipped: "&e{0} tệp đã tồn tại nên được bỏ qua (dùng --force để ghi đè)."
+  open-hint: "&7Mở menu: &f/{0} open {1}"
+  open-dialog-hint: "&7Menu hộp thoại: &f/{0} open dialog:{1}"
+  unknown: "&cKhông có chủ đề &e{0}&c. Chạy /{1} download để xem danh sách."
+  failed: "&cCài chủ đề &e{0}&c thất bại: &7{1}"
+  busy: "&7Đang có một lần tải chủ đề, vui lòng thử lại sau."
+  unavailable: "&cChức năng tải chủ đề hiện không khả dụng."
+  error: "&cKhông thể chạy tải chủ đề. Xem log console để biết chi tiết."
+
+update:
+  checking: "&7Đang kiểm tra cập nhật, vui lòng đợi..."
+  up-to-date: "&aBạn đang dùng phiên bản mới nhất &e{0}&a."
+  available: "&eĐã có phiên bản mới &6{0}&e (hiện tại &7{1}&e). Tải tại: &b{2}"
+  no-releases: "&7Kho lưu trữ từ xa chưa phát hành phiên bản nào."
+  failed: "&cKiểm tra cập nhật thất bại: &7{0}"
+  error: "&cKhông thể chạy kiểm tra cập nhật. Xem log console để biết chi tiết."
+  disabled: "&7Kiểm tra cập nhật đã bị tắt trong config.yml (settings.update-check.enabled)."
+  already-running: "&7Đang có một lần kiểm tra cập nhật, vui lòng thử lại sau."
 
 command:
   unknown: "&cLệnh con không xác định. Chạy /{0} help để xem danh sách lệnh."

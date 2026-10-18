@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "miaomenu:gui/sprites/menu/winter_snow"
+  }
+}

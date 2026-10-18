@@ -1,0 +1,50 @@
+menu_title: "&d&l春日樱花 &7| &f四季主题"
+rows: 3
+
+# 四季主题模板：图片来自插件 jar 内的 themes/ 资源包。
+# 未安装资源包时 image: 会退化为普通纸张，菜单依然可用。
+view_requirement:
+  deny_message: "&c你当前还不能打开这个菜单。"
+  requirements:
+    - type: permission
+      permission: dgeysermenu.use
+
+items:
+  theme_art:
+    slot: 4
+    material: "image:spring_sakura"
+    display_name: "&d&l春日樱花"
+    lore:
+      - "&7樱花飘落的季节"
+      - "&8image:spring_sakura"
+
+  open_dialog:
+    slot: 11
+    material: CHERRY_SAPLING
+    display_name: "&d&l以对话框打开"
+    lore:
+      - "&7打开同名的原生 Dialog 菜单"
+    left_click_commands:
+      - "[menu] dialog:theme-spring"
+
+  player_info:
+    slot: 13
+    material: PLAYER_HEAD
+    display_name: "&f&l当前玩家"
+    lore:
+      - "&f昵称: &e%player_name%"
+      - "&f世界: &b%player_world%"
+
+  close:
+    slot: 15
+    material: BARRIER
+    display_name: "&c&l关闭菜单"
+    lore:
+      - "&7点击关闭"
+    left_click_commands:
+      - "[close]"
+
+  theme_art_footer:
+    slot: 22
+    material: "image:spring_sakura"
+    display_name: "&7四季主题 · 春"
