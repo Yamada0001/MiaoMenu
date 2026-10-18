@@ -304,7 +304,8 @@ public final class ThemeRepository {
         try {
             int written = JavaBackgroundMenuWriter.writeAll(
                     plugin.getDataFolder().toPath().resolve("java_menus"),
-                    plugin.getDataFolder().toPath().resolve("themes/assets/miaomenu/textures")
+                    plugin.getDataFolder().toPath().resolve("themes/assets/miaomenu/textures"),
+                    cachedManifest
             );
             if (written > 0 && active) {
                 plugin.getLogger().info("Generated " + written + " theme background menu(s).");

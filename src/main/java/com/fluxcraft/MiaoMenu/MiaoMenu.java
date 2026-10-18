@@ -341,7 +341,8 @@ public final class MiaoMenu extends JavaPlugin {
                 if (getConfig().getBoolean("settings.theme-pack.generate-background-menus", true)) {
                     int menus = com.fluxcraft.MiaoMenu.theme.JavaBackgroundMenuWriter.writeAll(
                             getDataFolder().toPath().resolve("java_menus"),
-                            getDataFolder().toPath().resolve("themes/assets/miaomenu/textures")
+                            getDataFolder().toPath().resolve("themes/assets/miaomenu/textures"),
+                            themeRepository == null ? null : themeRepository.cachedManifest()
                     );
                     if (menus > 0) {
                         getLogger().info("Generated " + menus + " theme background menu(s).");
