@@ -151,10 +151,42 @@ public final class ThemePackExporter {
         }
         try {
             int copied = copyTree(themeAssets, target);
+            // CraftEngine 只把带 pack.yml 的目录当成"包"；没有它，包内的
+            // configuration/images.yml 不会被加载，<image:...> 也就渲染不出来。
+            if (provider == Provider.CRAFTENGINE && ensureCraftEnginePackManifest(target)) {
+                copied++;
+            }
             return new ExportResult(provider, target, copied, null);
         } catch (IOException e) {
             return ExportResult.failed(provider, target, e.getMessage());
         }
+    }
+
+    /**
+     * 补齐 CraftEngine 的 {@code pack.yml}（已存在则不动）。
+     *
+     * @return 是否新写入
+     */
+    private static boolean ensureCraftEnginePackManifest(Path resourcepackAssets) throws IOException {
+        // target 是 .../resources/miaomenu/resourcepack/assets，包根在往上两层
+        Path packRoot = resourcepackAssets.getParent() == null
+                ? null
+                : resourcepackAssets.getParent().getParent();
+        if (packRoot == null) {
+            return false;
+        }
+        Path manifest = packRoot.resolve("pack.yml");
+        if (Files.isRegularFile(manifest)) {
+            return false;
+        }
+        Files.createDirectories(packRoot);
+        Files.writeString(manifest, """
+                author: MiaoMenu
+                version: 1.0
+                description: MiaoMenu theme images
+                namespace: miaomenu
+                """, java.nio.charset.StandardCharsets.UTF_8);
+        return true;
     }
 
     /** 导出后让资源包插件重新生成包（命令可配置，留空则只提示）。 */

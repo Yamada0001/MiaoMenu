@@ -102,4 +102,40 @@ class ThemePackExporterTest {
 
         assertTrue(exporter.hasExportedPack(), "导出后应报告已就绪");
     }
+
+    @Test
+    void writesCraftEnginePackManifest() throws Exception {
+        Path themeAssets = pluginsFolder.resolve("MiaoMenu/themes/assets");
+        Path png = themeAssets.resolve("miaomenu/textures/item/menu/easter.png");
+        Files.createDirectories(png.getParent());
+        Files.write(png, new byte[]{1});
+
+        ThemePackExporter exporter = new ThemePackExporter(
+                pluginsFolder, ThemePackExporter.Provider.CRAFTENGINE);
+
+        ThemePackExporter.ExportResult result = exporter.export(themeAssets);
+
+        assertTrue(result.exported(), () -> "导出失败：" + result.error());
+        // CE 只把带 pack.yml 的目录当成"包"，缺了它 images.yml 不会生效
+        Path manifest = pluginsFolder.resolve("CraftEngine/resources/miaomenu/pack.yml");
+        assertTrue(Files.isRegularFile(manifest), "必须生成 pack.yml");
+        String yaml = Files.readString(manifest);
+        assertTrue(yaml.contains("namespace: miaomenu"), () -> "命名空间必须正确：" + yaml);
+    }
+
+    @Test
+    void keepsExistingCraftEnginePackManifest() throws Exception {
+        Path themeAssets = pluginsFolder.resolve("MiaoMenu/themes/assets");
+        Path png = themeAssets.resolve("miaomenu/textures/item/menu/easter.png");
+        Files.createDirectories(png.getParent());
+        Files.write(png, new byte[]{1});
+        Path manifest = pluginsFolder.resolve("CraftEngine/resources/miaomenu/pack.yml");
+        Files.createDirectories(manifest.getParent());
+        Files.writeString(manifest, "author: SomeoneElse\nnamespace: miaomenu\n");
+
+        new ThemePackExporter(pluginsFolder, ThemePackExporter.Provider.CRAFTENGINE).export(themeAssets);
+
+        assertTrue(Files.readString(manifest).contains("SomeoneElse"),
+                "服主手写的 pack.yml 不能被覆盖");
+    }
 }
