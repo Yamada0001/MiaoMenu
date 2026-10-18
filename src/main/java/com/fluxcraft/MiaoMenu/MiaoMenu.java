@@ -689,4 +689,27 @@ public final class MiaoMenu extends JavaPlugin {
     public ThemePackExporter getThemePackExporter() {
         return themePackExporter;
     }
+
+    /**
+     * Dialog 里的 {@code image:<id>} 是否应渲染成 CraftEngine 的
+     * {@code <image:...>} 大图标签。
+     *
+     * <p>CE 会拦截 Dialog 数据包（{@code intercept-packets.dialog}），所以正文里
+     * 的标签能显示成大图；没有 CE 时只能退回普通物品图标。</p>
+     */
+    public boolean useCraftEngineDialogImage() {
+        if (themePackExporter == null) {
+            return false;
+        }
+        if (!"tag".equalsIgnoreCase(getConfig()
+                .getString("settings.theme-pack.dialog-image", "tag"))) {
+            return false;
+        }
+        try {
+            return getServer() != null
+                    && getServer().getPluginManager().isPluginEnabled("CraftEngine");
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
 }

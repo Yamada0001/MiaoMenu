@@ -94,6 +94,10 @@ settings:
     # height 是显示高度（像素），ascent 是基线偏移（必须 <= height）。
     craftengine-image-height: 200
     craftengine-image-ascent: 6
+    # Dialog 里 body 写 material: "image:<id>" 时怎么渲染：
+    #   tag  = 用 CE 的 <image:...> 标签显示成大图（需要 CraftEngine）
+    #   item = 传统做法，显示成物品图标（尺寸由菜单里的 width/height 决定）
+    dialog-image: tag
 
   # 资源包下发：主题图片（image: 前缀）需要客户端加载主题资源包才能显示。
   # 未配置 url 时该功能自动跳过，菜单仍可正常使用（图片显示为纸张）。

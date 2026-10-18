@@ -9,6 +9,7 @@ import org.jspecify.annotations.Nullable;
 
 import com.fluxcraft.MiaoMenu.MiaoMenu;
 import com.fluxcraft.MiaoMenu.integration.ItemResolver;
+import com.fluxcraft.MiaoMenu.theme.CraftEngineImageRegistry;
 
 import io.papermc.paper.registry.data.dialog.body.DialogBody;
 import io.papermc.paper.registry.data.dialog.body.ItemDialogBody;
@@ -39,6 +40,8 @@ public record Body(
     }
 
     public static final String DEFAULT_MATERIAL = "STONE";
+    /** 主题图用 CE 标签渲染时的默认宽度（像素）；Dialog 正文可用宽度约 320。 */
+    private static final int DEFAULT_IMAGE_WIDTH = 320;
 
     public Body {
         lore = lore == null ? List.of() : List.copyOf(lore);
@@ -55,6 +58,12 @@ public record Body(
     }
 
     private DialogBody buildItem(Player player, MiaoMenu plugin, ItemResolver itemResolver) {
+        // CE 能拦截 Dialog 数据包，把 <image:...> 渲染成大图；
+        // 主题图本来就是整屏尺寸，用标签比 32×32 的物品图标更接近"背景"。
+        String themeId = themeImageId(material);
+        if (shouldUseCraftEngineImage(material, plugin.useCraftEngineDialogImage())) {
+            return buildCraftEngineImage(player, plugin, themeId);
+        }
         ItemStack stack = itemResolver.resolve(material == null || material.isBlank() ? DEFAULT_MATERIAL : material, 0);
         applyMeta(player, plugin, stack);
         ItemDialogBody.Builder builder = DialogBody.item(stack)
@@ -70,6 +79,43 @@ public record Body(
             builder.description(DialogBody.plainMessage(plugin.getMenuTextParser().parse(player, description)));
         }
         return builder.build();
+    }
+
+    /**
+     * 用 CraftEngine 的 {@code <image:命名空间:路径>} 标签渲染主题图。
+     *
+     * <p>文本 body 只有宽度参数，图片高度由 CE 的 {@code images.yml} 里
+     * {@code height} 决定（见 {@code settings.theme-pack.craftengine-image-height}）。</p>
+     */
+    private DialogBody buildCraftEngineImage(Player player, MiaoMenu plugin, String themeId) {
+        Component component = plugin.getMenuTextParser().parse(player, craftEngineImageTag(themeId));
+        int imageWidth = width > 0 ? width : DEFAULT_IMAGE_WIDTH;
+        return DialogBody.plainMessage(component, imageWidth);
+    }
+
+    /**
+     * 若 {@code material} 是 {@code image:<id>}，返回其中的 id；否则返回 {@code null}。
+     */
+    static @Nullable String themeImageId(@Nullable String material) {
+        if (material == null) {
+            return null;
+        }
+        String value = material.trim().toLowerCase(java.util.Locale.ROOT);
+        if (!value.startsWith("image:")) {
+            return null;
+        }
+        String id = value.substring("image:".length()).trim();
+        return id.isEmpty() ? null : id;
+    }
+
+    /** 本 body 是否应该用 CE 的 {@code <image:...>} 标签渲染。 */
+    static boolean shouldUseCraftEngineImage(@Nullable String material, boolean craftEngineDialogImage) {
+        return craftEngineDialogImage && themeImageId(material) != null;
+    }
+
+    /** 构造 CE 图片标签，例如 {@code <image:miaomenu:halloween>}。 */
+    static String craftEngineImageTag(String themeId) {
+        return "<image:" + CraftEngineImageRegistry.imageKey(themeId) + ">";
     }
 
     private void applyMeta(Player player, MiaoMenu plugin, ItemStack stack) {

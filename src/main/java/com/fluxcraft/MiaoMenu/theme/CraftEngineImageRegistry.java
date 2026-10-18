@@ -46,6 +46,16 @@ public final class CraftEngineImageRegistry {
     }
 
     /**
+     * 主题图在 CE 里的图片 ID，可直接写进 {@code <image:...>} 标签。
+     *
+     * <p>例如 {@code imageKey("halloween")} → {@code miaomenu:halloween}。</p>
+     */
+    public static String imageKey(String themeId) {
+        String id = themeId == null ? "" : themeId.trim().toLowerCase(Locale.ROOT);
+        return NAMESPACE + ":" + id;
+    }
+
+    /**
      * 为每个主题贴图补齐 images 条目。
      *
      * @param texturesRoot {@code assets/miaomenu/textures} 目录
