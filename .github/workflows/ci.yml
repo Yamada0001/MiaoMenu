@@ -87,7 +87,11 @@ jobs:
           if commits:
               for commit in commits:
                   sha = commit.get("id") or ""
-                  message = (commit.get("message") or "").rstrip("\r\n")
+                  message = commit.get("message") or ""
+                  # GitHub 的 commits[].message 会把换行转义成字面量 \n，仅在缺少真实换行时还原
+                  if "\n" not in message and "\\n" in message:
+                      message = message.replace("\\n", "\n")
+                  message = message.rstrip("\r\n")
                   author = commit.get("author") or {}
                   name = author.get("name") or "未知"
                   username = author.get("username") or ""
